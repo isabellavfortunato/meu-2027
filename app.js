@@ -512,6 +512,8 @@ function renderSheet() {
   const chave = f && sh0 && sh0.contains(f) && (f.dataset.p ? `[data-p="${f.dataset.p}"]` : f.dataset.obra ? `[data-obra="${f.dataset.obra}"]` : f.id ? `#${f.id}` : null);
   const sel = chave && typeof f.selectionStart === "number" ? [f.selectionStart, f.selectionEnd] : null;
   desenharFolha();
+  // pede para extensões de correção (Grammarly, LanguageTool) não se meterem nas caixas, porque elas costumam engolir colagens
+  document.querySelectorAll('#sheet textarea, #sheet input[type=text]').forEach(el => { el.setAttribute('data-gramm', 'false'); el.setAttribute('data-gramm_editor', 'false'); el.setAttribute('data-enable-grammarly', 'false'); el.setAttribute('data-lt-active', 'false'); el.setAttribute('autocomplete', 'off'); });
   if (chave) { const n = document.querySelector(chave); if (n) { n.focus({ preventScroll: true }); if (sel) try { n.setSelectionRange(sel[0], sel[1]); } catch (e) { } } }
 }
 function desenharFolha() {

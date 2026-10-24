@@ -95,7 +95,9 @@ textarea:focus,input:focus,select:focus{outline:2px solid var(--accent);outline-
 .passo h4{margin:0 0 6px;font-family:var(--display);font-weight:600;font-size:26px}
 .passo ol{margin:0;padding-left:24px}
 .passo li{margin:4px 0}
-.duas{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 20px}
+.duas{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 20px;align-items:end}
+.duas .lab{justify-content:flex-end}
+@supports (grid-template-rows:subgrid){.duas{grid-template-rows:auto auto;align-items:stretch}.duas .lab{display:grid;grid-row:span 2;grid-template-rows:subgrid;align-content:stretch}.duas .lab>span{align-self:end}}
 @media (max-width:700px){.duas{grid-template-columns:minmax(0,1fr)}}
 .dica-mic{background:var(--accent-soft);border-radius:12px;padding:18px 20px;margin:4px 0 6px}
 .dica-mic h3{margin:0 0 6px;font-family:var(--display);font-weight:600;font-size:30px}

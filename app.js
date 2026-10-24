@@ -3,7 +3,6 @@ const CFG = window.MEU2027_CONFIG || {};
 const params = new URLSearchParams(location.search);
 const DEMO = params.has("previa") || !CFG.firebase || !CFG.firebase.apiKey;
 const LS_KEY = "meu2027-previa-v2";
-const LS_OBRA = "meu2027-construcao-v1";
 const INICIO = CFG.inicio || "2026-12-10";
 const DIA_MS = 86400000;
 
@@ -48,11 +47,9 @@ const DIAS = [
   { t: "Os hábitos", ideia: "Anote os lembretes dos hábitos que sustentam os seus objetivos e marque em quais dias da semana cada um vale.", claude: "Monte comigo lembretes para os meus hábitos dentro da minha semana ideal." },
   { t: "O painel de 2027", ideia: "Veja num único painel os objetivos, os projetos, as ações e os hábitos que você construiu nos 10 dias.", claude: "" }
 ];
-const obraVal = (i, k) => { const o = (typeof OBRA !== "undefined" && OBRA[obraId(i)]) || {}; return VER_OBRA() && typeof o[k] === "string" ? o[k] : null; };
 const FINAL = () => DIAS.length; // a página O meu 2027
 const ULT = () => DIAS.length - 1; // o último dia
-const tituloDia = i => { const pb = PUB[obraId(i)]; return ((pb && typeof pb.titulo === "string" ? pb.titulo : null) ?? obraVal(i, "titulo") ?? DIAS[i].t).trim() || "Dia em aberto"; };
-const ideiaDia = i => (obraVal(i, "ideia") ?? DIAS[i].ideia).trim();
+const tituloDia = i => DIAS[i].t.trim() || "Dia em aberto";
 
 /* ---------- estado ---------- */
 const novoObjetivo = () => ({ id: novoId(), titulo: "", area: "", sinal: "", porque: "", trimestre: "" });
@@ -108,27 +105,6 @@ function setPath(path, v) {
 }
 
 /* ---------- espaço de construção (prévia do dia e roteiro do vídeo) ---------- */
-const OBRA = {}; // { d01: {previa, roteiro} } textos antigos de construção, só da administradora
-// conteúdo que as participantes veem: { d01: {titulo, video} }, guardado em conteudo/dias
-const PUB = {};
-const LS_PUB = "meu2027-publico-v1";
-let pubTimer = null;
-function carregarPubLocal() { try { const raw = localStorage.getItem(LS_PUB); if (raw) Object.assign(PUB, JSON.parse(raw)); } catch (e) { } }
-async function carregarPub() {
-  if (DEMO || !fs) return;
-  try { const snap = await fs.getDoc(fs.doc(db, "conteudo", "dias")); const c = snap.exists() && snap.data().dados; if (c) Object.assign(PUB, JSON.parse(c)); }
-  catch (e) { console.warn("conteúdo dos dias indisponível", e && e.code); }
-}
-function mudouPub() {
-  try { localStorage.setItem(LS_PUB, JSON.stringify(PUB)); } catch (e) { }
-  if (DEMO || !fs) return;
-  clearTimeout(pubTimer); pubTimer = setTimeout(gravarPub, 900);
-}
-async function gravarPub() {
-  const s = () => $("#obra-salvo");
-  try { await fs.setDoc(fs.doc(db, "conteudo", "dias"), { dados: JSON.stringify(PUB) }); if (s()) s().textContent = "Salvo para as participantes"; }
-  catch (e) { console.error(e); if (s()) s().textContent = e && e.code === "permission-denied" ? "Salvo só para você. Falta publicar as regras novas no Firebase para as participantes verem." : "Não consegui salvar, tentando de novo"; if (!(e && e.code === "permission-denied")) pubTimer = setTimeout(gravarPub, 4000); }
-}
 function ytId(url) {
   const u = String(url || "").trim(); if (!u) return "";
   if (/^[\w-]{11}$/.test(u)) return u;
@@ -136,88 +112,9 @@ function ytId(url) {
   return m ? m[1] : "";
 }
 function videoHTML(i) {
-  const id = ytId((PUB[obraId(i)] || {}).video);
+  const id = ytId(((CFG.videos || {})[i]) || "");
   if (id) return `<div class="video"><iframe src="https://www.youtube-nocookie.com/embed/${id}?rel=0&modestbranding=1" title="Vídeo do dia ${i}" allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; fullscreen" allowfullscreen loading="lazy"></iframe></div>`;
-  return `<div class="video vazio"><p>${VER_OBRA() ? "Cole o link do vídeo do YouTube na caixa de construção para ele aparecer aqui." : "O vídeo deste dia vai aparecer aqui."}</p></div>`;
-}
-const obraId = i => "d" + String(i).padStart(2, "0");
-const VER_OBRA = () => DEMO || admin;
-let obraDb = null;
-const obraTimers = {}, obraGravando = new Set(), obraSujos = new Set();
-
-const PREVIAS_PADRAO = {
-  d00: "Ela entra na ferramenta com a conta Google, coloca a ferramenta na tela de início do celular para usar como um aplicativo e testa o microfone do teclado numa caixa de texto.",
-  d01: "A página é uma série de perguntas, as mesmas do roteiro do vídeo, para ela preencher e também se inspirar para responder pelo microfone numa conversa com o Claude.",
-  d02: "Ela olha para 2026: o que deu certo, o que não deu, o que aprendeu e do que se orgulha, a palavra que resume o ano e um desabafo livre.",
-  d03: "A roda da vida com 8 áreas. Embaixo da roda, uma barra de 0 a 10 para cada área. A cor de cada área na roda muda conforme o nível que ela marca.",
-  d06: "Ela estabelece de 3 a 5 objetivos claros para 2027, com a área, o prazo, como vai saber que conseguiu e por que isso importa.",
-  d07: "O Claude, dentro da ferramenta, transforma os objetivos em projetos. Cada projeto é um card com o objetivo em cima, o nome do projeto embaixo e as ações para marcar. São 8 cards em 2 colunas, um embaixo do outro, e cada card começa com 3 ações e tem o botão para acrescentar mais.",
-  d08: "A semana ideal em forma de calendário, de segunda a domingo, com manhã, tarde e noite.",
-  d09: "Os lembretes dos hábitos, cada um com 7 círculos para marcar os dias da semana em que ele vale.",
-  d10: "Ela vê num único painel os objetivos, os projetos, as ações e os hábitos e abre O meu 2027, onde o Claude cruza tudo e faz a análise do ano."
-};
-let obraNuvem = false; // true quando a construção fica no Firestore da administradora
-function carregarObraLocal() { try { const raw = localStorage.getItem(LS_OBRA); if (raw) Object.assign(OBRA, JSON.parse(raw)); } catch (e) { } }
-async function iniciarObra() {
-  if (!DEMO && admin && fs && usuario) {
-    obraNuvem = true;
-    try {
-      const snap = await fs.getDoc(fs.doc(db, "participantes", usuario.uid));
-      const c = snap.exists() && snap.data().construcao;
-      if (c) { const nuvem = JSON.parse(c); Object.keys(nuvem).forEach(k => { if (!obraSujos.has(k)) OBRA[k] = nuvem[k]; }); }
-    } catch (e) { console.error(e); }
-    let migrou = false;
-    Object.keys(OBRA).forEach(k => ["titulo", "video"].forEach(c => { const v = OBRA[k] && OBRA[k][c]; if (typeof v === "string" && !(PUB[k] && typeof PUB[k][c] === "string")) { PUB[k] = { ...(PUB[k] || {}), [c]: v }; migrou = true; } }));
-    if (migrou) mudouPub();
-    renderTrail(); renderSheet();
-    return;
-  }
-  try { obraDb = window.claude && window.claude.use ? await window.claude.use("db") : null; } catch (e) { obraDb = null; }
-  if (!obraDb) return;
-  obraDb.collection("construcao").onSnapshot(snap => {
-    snap.docs.forEach(d => {
-      if (!d.exists || obraSujos.has(d.id) || obraGravando.has(d.id)) return;
-      OBRA[d.id] = { ...(d.data() || {}) };
-      if (cur < FINAL() && obraId(cur) === d.id) {
-        const foco = document.activeElement;
-        ["titulo", "ideia", "previa", "roteiro"].forEach(k => { const t = document.getElementById(`obra-${k}`); if (t && t !== foco && typeof OBRA[d.id][k] === "string" && t.value !== OBRA[d.id][k]) t.value = OBRA[d.id][k]; });
-        const h = $("#sheet h2.day"); if (h) h.textContent = tituloDia(cur);
-        const pi = $("#ideia-dia"); if (pi) { pi.textContent = ideiaDia(cur); pi.hidden = !ideiaDia(cur); }
-      }
-    });
-    renderTrail();
-  }, () => { });
-}
-function mudouObra(id) {
-  obraSujos.add(id);
-  try { localStorage.setItem(LS_OBRA, JSON.stringify(OBRA)); } catch (e) { }
-  const s = $("#obra-salvo"); if (s) s.textContent = (obraDb || obraNuvem) ? "Salvando" : "Salvo neste navegador";
-  clearTimeout(obraTimers[id]); obraTimers[id] = setTimeout(() => gravarObra(id), 900);
-}
-async function gravarObra(id) {
-  if (obraNuvem) {
-    obraSujos.delete(id);
-    try { await fs.setDoc(fs.doc(db, "participantes", usuario.uid), { construcao: JSON.stringify(OBRA) }, { merge: true }); const s = $("#obra-salvo"); if (s) s.textContent = "Salvo"; }
-    catch (e) { obraSujos.add(id); const s = $("#obra-salvo"); if (s) s.textContent = "Não consegui salvar, tentando de novo"; obraTimers[id] = setTimeout(() => gravarObra(id), 4000); }
-    return;
-  }
-  if (!obraDb) { obraSujos.delete(id); return; }
-  if (obraGravando.has(id)) { clearTimeout(obraTimers[id]); obraTimers[id] = setTimeout(() => gravarObra(id), 600); return; }
-  obraGravando.add(id); obraSujos.delete(id);
-  try { await obraDb.doc("construcao/" + id).set({ ...(OBRA[id] || {}) }); const s = $("#obra-salvo"); if (s) s.textContent = "Salvo"; }
-  catch (e) { obraSujos.add(id); const s = $("#obra-salvo"); if (s) s.textContent = "Não consegui salvar, tentando de novo"; obraTimers[id] = setTimeout(() => gravarObra(id), 4000); }
-  obraGravando.delete(id);
-}
-function textoObra() {
-  return DIAS.map((_, i) => { const o = OBRA[obraId(i)] || {}; return `DIA ${i}. ${tituloDia(i).toUpperCase()}\nTexto de abertura: ${ideiaDia(i) || "(em branco)"}\nPrévia do dia: ${(o.previa ?? PREVIAS_PADRAO[obraId(i)] ?? "").trim() || "(em branco)"}\nRoteiro do vídeo: ${(o.roteiro || "").trim() || "(em branco)"}`; }).join("\n\n");
-}
-function obraHTML(i) {
-  if (!VER_OBRA()) return "";
-  const pb = PUB[obraId(i)] || {}, o = OBRA[obraId(i)] || {};
-  return `<div class="obra noprint"><h3>Construção do dia ${i}</h3><p class="quem">Só você vê esta caixa. As participantes veem o título e o vídeo. <span class="salvo" id="obra-salvo"></span></p>
-  <label class="lab"><span>Título do dia</span><input type="text" id="obra-titulo" data-obra="titulo" value="${esc(pb.titulo ?? o.titulo ?? DIAS[i].t)}"></label>
-  <label class="lab"><span>Link do vídeo do YouTube</span><input type="text" id="obra-video" data-obra="video" inputmode="url" placeholder="https://youtu.be/..." value="${esc(pb.video ?? "")}"></label>
-  <button class="btn small" data-act="copiar-obra">Copiar os textos antigos de construção</button></div>`;
+  return `<div class="video vazio"><p>O vídeo deste dia vai aparecer aqui.</p></div>`;
 }
 
 /* ---------- datas ---------- */
@@ -434,7 +331,7 @@ function dia3() {
     <label class="lab"><span>As 3 áreas que, melhorando, puxam as outras para cima</span>${ta("d3.cima", 5)}</label>
   </div></section>`;
 }
-function diaAberto() { return VER_OBRA() ? "" : `<p class="vazio-dia">Este dia ainda está sendo preparado.</p>`; }
+function diaAberto() { return `<p class="vazio-dia">Este dia ainda está sendo preparado.</p>`; }
 function dia6() {
   const os = S.d6.objetivos;
   return `<section class="sec"><h3>De 3 a 5 objetivos</h3>
@@ -568,7 +465,7 @@ function crescer(t) { t.style.height = "auto"; t.style.height = t.scrollHeight +
 function crescerTodos() { document.querySelectorAll("textarea.auto").forEach(crescer); }
 function renderSheet() {
   const f = document.activeElement, sh0 = $("#sheet");
-  const chave = f && sh0 && sh0.contains(f) && (f.dataset.p ? `[data-p="${f.dataset.p}"]` : f.dataset.obra ? `[data-obra="${f.dataset.obra}"]` : f.id ? `#${f.id}` : null);
+  const chave = f && sh0 && sh0.contains(f) && (f.dataset.p ? `[data-p="${f.dataset.p}"]` : f.id ? `#${f.id}` : null);
   const sel = chave && typeof f.selectionStart === "number" ? [f.selectionStart, f.selectionEnd] : null;
   desenharFolha();
   // pede para extensões de correção (Grammarly, LanguageTool) não se meterem nas caixas, porque elas costumam engolir colagens
@@ -582,7 +479,6 @@ function desenharFolha() {
   const d = DIAS[cur];
   if (!aberto(cur)) { sh.innerHTML = bloqueado(cur, tituloDia(cur)); return; }
   sh.innerHTML = `<div class="eyebrow">Dia ${cur}${DEMO || cur === 0 ? "" : ` · ${esc(fmtData(abertura(cur)))}`}</div><h2 class="day">${esc(tituloDia(cur))}</h2>
-  ${obraHTML(cur)}
   <div id="video-dia">${videoHTML(cur)}</div>
   ${RENDER[cur]()}
   ${d.claude ? `<div class="claude"><h3>Leve para o Claude</h3><p>${esc(d.claude)}</p><p class="note">O botão copia a mensagem junto com as suas respostas deste dia. Cole no seu projeto do Claude.</p>
@@ -615,11 +511,6 @@ function ir(i) {
 /* ---------- eventos ---------- */
 document.addEventListener("input", e => {
   const t = e.target;
-  if (t.dataset.obra && cur < FINAL()) {
-    const id = obraId(cur); OBRA[id] = { ...(OBRA[id] || {}), [t.dataset.obra]: t.value }; mudouObra(id);
-    if (t.dataset.obra === "titulo" || t.dataset.obra === "video") { PUB[id] = { ...(PUB[id] || {}), [t.dataset.obra]: t.value }; mudouPub(); }
-    return;
-  }
   if (t.dataset.nota) {
     const id = t.dataset.nota, v = Number(t.value);
     S.d3.notas[id] = v; mudou();
@@ -635,9 +526,6 @@ document.addEventListener("input", e => {
 });
 document.addEventListener("change", e => {
   const t = e.target;
-  // título e abertura só atualizam a página quando a pessoa sai do campo, para nada se mexer enquanto ela dita
-  if (t.dataset && t.dataset.obra === "titulo") { const h = $("#sheet h2.day"); if (h) h.textContent = tituloDia(cur); renderTrail(); return; }
-  if (t.dataset && t.dataset.obra === "video") { const v = $("#video-dia"); if (v) v.innerHTML = videoHTML(cur); return; }
   if (t.dataset && t.dataset.act === "d0") { S.d0.feito[+t.dataset.k] = t.checked; mudou(); t.closest(".chk").classList.toggle("feita", t.checked); return; }
   if (t.dataset && t.dataset.act === "feita") {
     const tk = listaProj(t.dataset.lista)[+t.dataset.pi]?.tarefas[+t.dataset.k];
@@ -667,7 +555,6 @@ document.addEventListener("click", async e => {
     case "rm-lembrete": S.d9.lembretes.splice(i, 1); if (!S.d9.lembretes.length) S.d9.lembretes.push(novoLembrete()); break;
     case "circ": { const l = S.d9.lembretes[i]; l.dias[+b.dataset.k] = !l.dias[+b.dataset.k]; b.classList.toggle("on"); b.setAttribute("aria-pressed", l.dias[+b.dataset.k]); mudou(); return; }
     case "concluir": S.concluidos[+b.dataset.d] = !S.concluidos[+b.dataset.d]; mudou(); renderTrail(); renderSheet(); if (S.concluidos[+b.dataset.d]) toast("Dia concluído"); return;
-    case "copiar-obra": copiar(textoObra()); return;
     case "copiar-perguntas": copiar(textoPerguntasD1()); return;
     case "copiar": copiar(`${DIAS[+b.dataset.d].claude}\n\n${textoDia(+b.dataset.d)}`); return;
     case "resumo": gerarResumo(b.dataset.tipo, b); return;
@@ -753,11 +640,9 @@ function telaLogin(erro) {
   };
 }
 async function iniciar() {
-  carregarObraLocal();
   if (DEMO) {
-    carregarPubLocal();
     try { const raw = localStorage.getItem(LS_KEY); if (raw) S = mesclar(JSON.parse(raw)); } catch (e) { }
-    cur = diaInicial(); renderApp(); iniciarObra(); return;
+    cur = diaInicial(); renderApp(); return;
   }
   const V = "10.12.2";
   const appMod = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-app.js`);
@@ -773,8 +658,7 @@ async function iniciar() {
       const snap = await fs.getDoc(fs.doc(db, "participantes", u.uid));
       if (snap.exists() && snap.data().dados) S = mesclar(JSON.parse(snap.data().dados));
     } catch (e) { console.error(e); toast("Não consegui carregar as suas respostas. Recarregue a página."); }
-    await carregarPub();
-    cur = diaInicial(); renderApp(); if (admin) iniciarObra();
+    cur = diaInicial(); renderApp();
   });
 }
 iniciar();

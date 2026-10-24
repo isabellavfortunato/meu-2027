@@ -15,5 +15,20 @@ window.MEU2027_CONFIG = {
   inicio: "2026-12-10",
 
   // E-mails que veem todos os dias abertos antes da data, para testar.
-  admins: ["isavfortunato@gmail.com"]
+  admins: ["isavfortunato@gmail.com"],
+
+  // Vídeos do YouTube de cada dia (pode ser link não listado). O número é o dia.
+  videos: {
+    0: "",
+    1: "",
+    2: "",
+    3: "",
+    4: "",
+    5: "",
+    6: "",
+    7: "",
+    8: "",
+    9: "",
+    10: ""
+  }
 };

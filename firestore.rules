@@ -5,12 +5,5 @@ service cloud.firestore {
     match /participantes/{uid} {
       allow read, write: if request.auth != null && request.auth.uid == uid;
     }
-    // Títulos e vídeos dos dias: todas as participantes leem, só a administradora grava.
-    match /conteudo/{doc} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null
-        && request.auth.token.email == "isavfortunato@gmail.com"
-        && request.auth.token.email_verified == true;
-    }
   }
 }

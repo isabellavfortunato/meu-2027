@@ -167,7 +167,12 @@ button.btn:focus-visible,.x:focus-visible{outline:2px solid var(--accent);outlin
 .prog i{display:block;height:100%;background:var(--accent);border-radius:99px}
 
 /* projetos do dia 7 */
-.projetos{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:14px}
+.projetos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin-top:16px}
+.painel-topo{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px}
+.contagem{font-family:var(--display);font-weight:600;font-size:26px;color:var(--accent)}
+textarea.pobj{font-family:var(--cond);font-size:19px;text-transform:uppercase;letter-spacing:.06em;color:var(--accent);background:transparent;border-color:transparent;padding:2px 4px}
+textarea.pobj:hover{border-color:var(--line)}
+.projeto .prog{margin:2px 0 6px}
 .projeto{border:1px solid var(--line);border-radius:12px;padding:14px;background:var(--paper);display:flex;flex-direction:column;gap:6px;min-width:0}
 .projeto .cardhead input{font-size:24px;padding:2px 4px}
 .projeto .origem{font-family:var(--cond);font-size:19px;color:var(--muted);margin:0 0 4px}
@@ -211,7 +216,6 @@ textarea.pnome:hover{border-color:var(--line)}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--paper);font-family:var(--cond);padding:10px 18px;border-radius:8px;font-size:22px;z-index:9;max-width:calc(100% - 32px)}
 
 @media (max-width:1000px){
-  .projetos{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 @media (max-width:1200px){
   .semanal{grid-template-columns:minmax(0,1fr)}

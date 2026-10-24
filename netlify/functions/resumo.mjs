@@ -82,7 +82,7 @@ export default async req => {
     try {
       const bruto = saida.slice(saida.indexOf("{"), saida.lastIndexOf("}") + 1);
       const obj = JSON.parse(bruto);
-      const projetos = (Array.isArray(obj.projetos) ? obj.projetos : []).slice(0, 9).map(p => ({
+      const projetos = (Array.isArray(obj.projetos) ? obj.projetos : []).slice(0, 8).map(p => ({
         nome: String(p.nome || "").slice(0, 120),
         objetivo: String(p.objetivo || "").slice(0, 300),
         tarefas: (Array.isArray(p.tarefas) ? p.tarefas : []).slice(0, 12).map(t => String(t).slice(0, 200))

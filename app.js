@@ -43,9 +43,9 @@ const DIAS = [
   { t: "", ideia: "", claude: "" },
   { t: "", ideia: "", claude: "" },
   { t: "Os objetivos", ideia: "Escreva de 3 a 5 objetivos claros para 2027.", claude: "Revise os meus objetivos e me diga se algum está vago demais para eu saber se cheguei lá." },
-  { t: "Dos objetivos aos projetos", ideia: "Os seus objetivos viram projetos, e cada projeto é quebrado em tarefas pequenas para você ir marcando.", claude: "Pegue um dos meus projetos e me ajude a montar o primeiro passo de cada tarefa." },
-  { t: "O painel do ano", ideia: "O painel reúne as tarefas dos seus projetos, soma pontos a cada tarefa feita e mostra o seu nível. Defina uma recompensa para cada nível.", claude: "Construa comigo uma versão deste painel do ano do meu jeito, com as cores e os níveis que eu escolher." },
-  { t: "Hábitos e semana ideal", ideia: "Desenhe a sua semana ideal de 2027 e anote os lembretes dos hábitos que sustentam os seus objetivos, marcando em quais dias cada um vale.", claude: "Monte comigo lembretes para os meus hábitos dentro da minha semana ideal." },
+  { t: "Dos objetivos aos projetos", ideia: "Os seus objetivos viram projetos, e cada projeto é quebrado em ações pequenas para você ir marcando ao longo do ano.", claude: "Pegue um dos meus projetos e me ajude a montar o primeiro passo de cada ação." },
+  { t: "A semana ideal", ideia: "Desenhe a sua semana ideal de 2027, de segunda a domingo, com manhã, tarde e noite.", claude: "Monte comigo a minha semana ideal a partir dos meus projetos e da minha rotina." },
+  { t: "Os hábitos", ideia: "Anote os lembretes dos hábitos que sustentam os seus objetivos e marque em quais dias da semana cada um vale.", claude: "Monte comigo lembretes para os meus hábitos dentro da minha semana ideal." },
   { t: "O ritual de revisão", ideia: "Combine com você mesma quando e como vai revisar o plano, para ele continuar vivo depois de janeiro, e escolha o primeiro passo.", claude: "Transforme o meu ritual de revisão num roteiro que eu possa repetir toda semana." }
 ];
 const obraVal = (i, k) => { const o = (typeof OBRA !== "undefined" && OBRA[obraId(i)]) || {}; return VER_OBRA() && typeof o[k] === "string" ? o[k] : null; };
@@ -72,7 +72,7 @@ function estadoInicial() {
     d9: { semana: {}, lembretes: [novoLembrete(), novoLembrete(), novoLembrete()] },
     d10: {
       diaRevisao: "Domingo",
-      semanal: ["Olhar o painel do ano e marcar as tarefas feitas", "Escolher as 3 tarefas mais importantes da semana", "Conferir os lembretes da semana que passou"],
+      semanal: ["Olhar os projetos e marcar as ações feitas", "Escolher as 3 tarefas mais importantes da semana", "Conferir os lembretes da semana que passou"],
       mensal: ["Rever o progresso de cada projeto", "Ajustar as tarefas do mês seguinte", "Comemorar uma conquista do mês"],
       trimestral: ["Refazer a roda da vida", "Decidir se algum objetivo precisa mudar", "Planejar os projetos do próximo trimestre"],
       primeiroPasso: "", dataPasso: ""
@@ -120,9 +120,9 @@ const PREVIAS_PADRAO = {
   d02: "Ela olha para 2026: o que deu certo, o que não deu, o que aprendeu e do que se orgulha, a palavra que resume o ano e um desabafo livre.",
   d03: "A roda da vida com 8 áreas. Embaixo da roda, uma barra de 0 a 10 para cada área. A cor de cada área na roda muda conforme o nível que ela marca.",
   d06: "Ela estabelece de 3 a 5 objetivos claros para 2027, com a área, o prazo, como vai saber que conseguiu e por que isso importa.",
-  d07: "O Claude, dentro da ferramenta, transforma os objetivos em projetos e preenche as tarefas de cada um. Os projetos aparecem em 3 colunas, com 6 visíveis na página. Cada projeto começa com 3 tarefas para marcar e tem o botão Acrescentar uma tarefa. No celular, um embaixo do outro.",
-  d08: "O painel reúne as tarefas dos projetos, soma 10 pontos por tarefa feita, mostra o nível (Semente, Broto, Muda, Árvore e Floresta) e tem uma recompensa para cada nível.",
-  d09: "A página tem o calendário da semana ideal, de segunda a domingo, com manhã, tarde e noite. Do lado direito, os lembretes, cada um com 7 círculos para marcar os dias da semana em que ele vale.",
+  d07: "O Claude, dentro da ferramenta, transforma os objetivos em projetos. Cada projeto é um card com o objetivo em cima, o nome do projeto embaixo e as ações para marcar. São 8 cards em 2 colunas, um embaixo do outro, e cada card começa com 3 ações e tem o botão para acrescentar mais.",
+  d08: "A semana ideal em forma de calendário, de segunda a domingo, com manhã, tarde e noite.",
+  d09: "Os lembretes dos hábitos, cada um com 7 círculos para marcar os dias da semana em que ele vale.",
   d10: "Ela combina o dia da revisão semanal e os passos das revisões semanal, mensal e trimestral, escolhe o primeiro passo de janeiro e abre O meu 2027, onde o Claude cruza tudo e faz a análise do ano."
 };
 let obraNuvem = false; // true quando a construção fica no Firestore da administradora
@@ -307,17 +307,14 @@ function textoDia(i) {
     p.tarefas.filter(t => t.texto.trim()).forEach(t => L.push(`- [${t.feita ? "x" : " "}] ${t.texto}`));
   });
   if (i === 8) {
-    const ts = todasTarefas(), f = ts.filter(t => t.feita).length;
-    L.push(`Tarefas: ${ts.length}. Feitas: ${f}. Pontos: ${f * PONTOS_TAREFA}.`);
-    NIVEIS.slice(1).forEach((n, k) => L.push(`Recompensa do nível ${n.nome}: ${v(S.d8.recompensas[k])}`));
-  }
-  if (i === 9) {
     L.push("Semana ideal:");
     DIAS_SEMANA.forEach((d, a) => {
       const ps = PERIODOS.map((p, b) => { const t = (S.d9.semana[`d${a}p${b}`] || "").trim(); return t ? `${p}: ${t}` : ""; }).filter(Boolean);
       if (ps.length) L.push(`${d}: ${ps.join("; ")}`);
     });
-    L.push("\nLembretes:");
+  }
+  if (i === 9) {
+    L.push("Lembretes:");
     S.d9.lembretes.filter(l => l.texto.trim()).forEach(l => L.push(`- ${l.texto} (${DIAS_SEMANA.filter((_, k) => l.dias[k]).join(", ") || "sem dias marcados"})`));
   }
   if (i === 10) {
@@ -406,51 +403,38 @@ function dia6() {
   </div>`).join("")}
   ${os.length < 5 ? `<button class="btn" data-act="add-obj">Acrescentar um objetivo</button>` : ""}</section>`;
 }
+const TOTAL_PROJETOS = 8;
+function garantirProjetos() { while (S.d7.projetos.length < TOTAL_PROJETOS) S.d7.projetos.push(novoProjeto()); }
 function dia7() {
-  const ps = projetos();
-  return `<section class="sec"><h3>Os seus projetos</h3>
-  <p class="note">O Claude transforma os objetivos do dia 6 em projetos com tarefas. Depois, você muda o que quiser e vai marcando as tarefas feitas.</p>
-  <button class="btn primary" data-act="gerar-projetos">${confirmarProjetos ? "Clique de novo para substituir os projetos" : ps.length ? "Gerar os projetos de novo" : "Transformar os meus objetivos em projetos"}</button>
-  <div class="projetos">${ps.map((p, i) => `<div class="projeto">
-    <div class="cardhead"><textarea class="auto pnome" rows="1" data-p="d7.projetos.${i}.nome" placeholder="Nome do projeto">${esc(p.nome)}</textarea><button class="x" data-act="rm-proj" data-i="${i}" aria-label="Tirar o projeto">×</button></div>
-    ${p.objetivo ? `<p class="origem">Objetivo: ${esc(p.objetivo)}</p>` : ""}
-    ${p.tarefas.map((t, k) => `<div class="tarefa${t.feita ? " feita" : ""}"><input type="checkbox" data-act="feita" data-pi="${i}" data-k="${k}" ${t.feita ? "checked" : ""} aria-label="Tarefa feita"><textarea class="auto" rows="1" data-p="d7.projetos.${i}.tarefas.${k}.texto" placeholder="Tarefa ${k + 1}">${esc(t.texto)}</textarea><button class="x" data-act="rm-tarefa" data-pi="${i}" data-k="${k}" aria-label="Tirar a tarefa">×</button></div>`).join("")}
-    <button class="btn small" data-act="add-tarefa" data-pi="${i}">Acrescentar uma tarefa</button>
-  </div>`).join("")}</div>
-  <button class="btn addrow" data-act="add-proj" style="margin-top:16px">Acrescentar um projeto</button></section>`;
-}
-function painelResumo() {
-  const ts = todasTarefas(), feitas = ts.filter(t => t.feita).length, pts = feitas * PONTOS_TAREFA, ni = nivelDe(pts), prox = NIVEIS[ni + 1];
-  const pct = prox ? Math.round(((pts - NIVEIS[ni].pts) * 100) / (prox.pts - NIVEIS[ni].pts)) : 100;
-  return `<div class="cards">
-    <div class="kpi"><small>Pontos</small><b>${pts}</b></div>
-    <div class="kpi"><small>Nível</small><b>${esc(NIVEIS[ni].nome)}</b></div>
-    <div class="kpi"><small>Tarefas feitas</small><b>${feitas}</b><span> de ${ts.length}</span></div>
-    <div class="kpi"><small>Próximo nível</small><b>${prox ? esc(prox.nome) : "Completo"}</b>${prox ? `<span> faltam ${prox.pts - pts} pontos</span>` : ""}</div>
-  </div><div class="prog" aria-label="Progresso até o próximo nível"><i style="width:${pct}%"></i></div>`;
+  garantirProjetos();
+  const ps = projetos(), ts = todasTarefas(), f = ts.filter(t => t.feita).length;
+  const temConteudo = ps.some(p => p.nome.trim() || p.tarefas.some(t => t.texto.trim()));
+  return `<section class="sec"><h3>O seu painel do ano</h3>
+  <p class="note">O Claude transforma os objetivos do dia 6 em projetos com ações. Depois, você muda o que quiser e vai marcando as ações feitas ao longo do ano.</p>
+  <div class="painel-topo"><button class="btn primary" data-act="gerar-projetos">${confirmarProjetos ? "Clique de novo para substituir os projetos" : temConteudo ? "Gerar os projetos de novo" : "Transformar os meus objetivos em projetos"}</button>
+  <span class="contagem">${f} de ${ts.length} ações feitas</span></div>
+  <div class="projetos">${ps.map((p, i) => {
+    const pts = p.tarefas.filter(t => t.texto.trim()), pf = pts.filter(t => t.feita).length, pc = pts.length ? Math.round((pf * 100) / pts.length) : 0;
+    return `<div class="projeto">
+    <div class="cardhead"><textarea class="auto pobj" rows="1" data-p="d7.projetos.${i}.objetivo" placeholder="Objetivo">${esc(p.objetivo)}</textarea><button class="x" data-act="limpar-proj" data-i="${i}" aria-label="Limpar o projeto">×</button></div>
+    <textarea class="auto pnome" rows="1" data-p="d7.projetos.${i}.nome" placeholder="Nome do projeto">${esc(p.nome)}</textarea>
+    <div class="prog" aria-label="Ações feitas"><i style="width:${pc}%"></i></div>
+    ${p.tarefas.map((t, k) => `<div class="tarefa${t.feita ? " feita" : ""}"><input type="checkbox" data-act="feita" data-pi="${i}" data-k="${k}" ${t.feita ? "checked" : ""} aria-label="Ação feita"><textarea class="auto" rows="1" data-p="d7.projetos.${i}.tarefas.${k}.texto" placeholder="Ação ${k + 1}">${esc(t.texto)}</textarea><button class="x" data-act="rm-tarefa" data-pi="${i}" data-k="${k}" aria-label="Tirar a ação">×</button></div>`).join("")}
+    <button class="btn small" data-act="add-tarefa" data-pi="${i}">Acrescentar uma ação</button>
+  </div>`;
+  }).join("")}</div></section>`;
 }
 function dia8() {
-  return `<section class="sec"><h3>O seu painel</h3>${painelResumo()}<p class="note">Cada tarefa feita vale ${PONTOS_TAREFA} pontos. Marque as tarefas aqui ou nos projetos do dia 7.</p></section>
-  ${projetos().map((p, i) => {
-    const ts = p.tarefas.filter(t => t.texto.trim()), f = ts.filter(t => t.feita).length, pc = ts.length ? Math.round((f * 100) / ts.length) : 0;
-    return `<section class="sec"><h3>${esc(p.nome || "Projeto sem nome")}</h3><div class="prog"><i style="width:${pc}%"></i></div><p class="note">${f} de ${ts.length} tarefas feitas</p>
-    ${p.tarefas.map((t, k) => t.texto.trim() ? `<label class="chk ${t.feita ? "feita" : ""}"><input type="checkbox" data-act="feita" data-pi="${i}" data-k="${k}" ${t.feita ? "checked" : ""}><span>${esc(t.texto)}</span></label>` : "").join("") || `<p class="note">Este projeto ainda não tem tarefas.</p>`}</section>`;
-  }).join("")}
-  <section class="sec"><h3>As recompensas de cada nível</h3>
-  ${NIVEIS.slice(1).map((n, k) => `<label class="lab"><span>${esc(n.nome)}, a partir de ${n.pts} pontos</span>${inp(`d8.recompensas.${k}`, "O que você vai se dar de presente?")}</label>`).join("")}</section>`;
+  return `<section class="sec"><div class="cal"><table><thead><tr><th></th>${DIAS_SEMANA.map(d => `<th>${d}</th>`).join("")}</tr></thead><tbody>
+  ${PERIODOS.map((p, b) => `<tr><th>${p}</th>${DIAS_SEMANA.map((_, a) => `<td>${ta(`d9.semana.d${a}p${b}`, 3)}</td>`).join("")}</tr>`).join("")}
+  </tbody></table></div></section>`;
 }
 function dia9() {
-  return `<section class="sec"><div class="semanal">
-  <div><h3 style="font-family:var(--display);font-weight:600;font-size:34px;margin:0 0 8px">A sua semana ideal</h3>
-  <div class="cal"><table><thead><tr><th></th>${DIAS_SEMANA.map(d => `<th>${d}</th>`).join("")}</tr></thead><tbody>
-  ${PERIODOS.map((p, b) => `<tr><th>${p}</th>${DIAS_SEMANA.map((_, a) => `<td>${ta(`d9.semana.d${a}p${b}`, 3)}</td>`).join("")}</tr>`).join("")}
-  </tbody></table></div></div>
-  <div class="lembretes"><h3 style="font-family:var(--display);font-weight:600;font-size:34px;margin:0 0 8px">Lembretes</h3>
+  return `<section class="sec lembretes">
   ${S.d9.lembretes.map((l, i) => `<div class="lembrete"><div class="row">${inp(`d9.lembretes.${i}.texto`, "Um lembrete")}<button class="x" data-act="rm-lembrete" data-i="${i}" aria-label="Tirar o lembrete">×</button></div>
     <div class="dias">${l.dias.map((on, k) => `<span class="dia"><button class="circ${on ? " on" : ""}" data-act="circ" data-i="${i}" data-k="${k}" aria-pressed="${on}" aria-label="${DIAS_SEMANA[k]}"></button><small>${INICIAIS[k]}</small></span>`).join("")}</div></div>`).join("")}
   <button class="btn small addrow" data-act="add-lembrete">Acrescentar um lembrete</button>
-  <p class="note">Marque os dias da semana em que cada lembrete vale.</p></div>
-  </div></section>`;
+  <p class="note">Marque os dias da semana em que cada lembrete vale.</p></section>`;
 }
 function dia10() {
   return `<section class="sec"><h3>Quando você revisa</h3>
@@ -580,7 +564,7 @@ document.addEventListener("change", e => {
   if (t.dataset && t.dataset.act === "d0") { S.d0.feito[+t.dataset.k] = t.checked; mudou(); t.closest(".chk").classList.toggle("feita", t.checked); return; }
   if (t.dataset && t.dataset.act === "feita") {
     const tk = projetos()[+t.dataset.pi]?.tarefas[+t.dataset.k];
-    if (tk) { tk.feita = t.checked; mudou(); renderSheet(); if (t.checked) toast(`Mais ${PONTOS_TAREFA} pontos`); }
+    if (tk) { tk.feita = t.checked; mudou(); renderSheet(); if (t.checked) toast("Ação feita"); }
   }
 });
 document.addEventListener("click", async e => {
@@ -599,6 +583,7 @@ document.addEventListener("click", async e => {
     case "gerar-projetos": gerarProjetos(b); return;
     case "add-proj": projetos().push(novoProjeto()); break;
     case "rm-proj": projetos().splice(i, 1); break;
+    case "limpar-proj": projetos()[i] = novoProjeto(); break;
     case "add-tarefa": projetos()[+b.dataset.pi].tarefas.push(novaTarefa()); break;
     case "rm-tarefa": projetos()[+b.dataset.pi].tarefas.splice(+b.dataset.k, 1); break;
     case "add-lembrete": S.d9.lembretes.push(novoLembrete()); break;
@@ -647,7 +632,7 @@ async function gerarProjetos(btn) {
   confirmarProjetos = false;
   if (DEMO) {
     const os = S.d6.objetivos.filter(o => o.titulo.trim());
-    S.d7.projetos = (os.length ? os : [{ titulo: "" }]).map(o => novoProjeto(o.titulo ? `Projeto: ${o.titulo}` : "", o.titulo));
+    S.d7.projetos = os.slice(0, TOTAL_PROJETOS).map(o => novoProjeto("", o.titulo)); garantirProjetos();
     mudou(); renderSheet(); toast("Na prévia, os projetos aparecem vazios. Com o login ativado, o Claude preenche as tarefas.");
     return;
   }
@@ -657,12 +642,12 @@ async function gerarProjetos(btn) {
     const j = await chamarClaude("projetos", textoDia(6));
     const lst = Array.isArray(j.projetos) ? j.projetos : [];
     if (!lst.length) throw new Error("O Claude não devolveu projetos. Tente de novo.");
-    S.d7.projetos = lst.map(p => {
+    S.d7.projetos = lst.slice(0, TOTAL_PROJETOS).map(p => {
       const ts = (Array.isArray(p.tarefas) ? p.tarefas : []).map(t => ({ id: novoId(), texto: String(t), feita: false }));
       while (ts.length < 3) ts.push(novaTarefa());
       return { id: novoId(), nome: String(p.nome || ""), objetivo: String(p.objetivo || ""), tarefas: ts };
     });
-    pendente = true; await salvar(); renderSheet();
+    garantirProjetos(); pendente = true; await salvar(); renderSheet();
   } catch (err) { toast(err.message); renderSheet(); }
 }
 

@@ -36,6 +36,7 @@ const PONTOS_TAREFA = 10;
 
 // t vazio = dia em aberto
 const DIAS = [
+  { t: "Antes de começar", ideia: "Deixe a ferramenta pronta no seu celular: entre com a sua conta Google e coloque a ferramenta na tela de início, para usar como um aplicativo e aproveitar o microfone.", claude: "" },
   { t: "Primeiras coisas que você precisa fazer para usar a inteligência artificial", ideia: "", claude: "Organize numa ordem lógica tudo o que eu contei sobre mim e me diga o que ficou faltando para você me conhecer melhor." },
   { t: "A retrospectiva de 2026", ideia: "Olhar para 2026 com honestidade: o que deu certo, o que não deu, o que você aprendeu e do que você se orgulha.", claude: "A partir da minha retrospectiva de 2026, me ajude a enxergar os padrões que se repetem." },
   { t: "A roda da vida", ideia: "Marque de 0 a 10 como está cada uma das 8 áreas da sua vida hoje. A roda muda de cor conforme o nível de cada área.", claude: "Olhando as notas da minha roda da vida, quais áreas estão puxando as outras para baixo?" },
@@ -48,6 +49,8 @@ const DIAS = [
   { t: "O ritual de revisão", ideia: "Combine com você mesma quando e como vai revisar o plano, para ele continuar vivo depois de janeiro, e escolha o primeiro passo.", claude: "Transforme o meu ritual de revisão num roteiro que eu possa repetir toda semana." }
 ];
 const obraVal = (i, k) => { const o = (typeof OBRA !== "undefined" && OBRA[obraId(i)]) || {}; return VER_OBRA() && typeof o[k] === "string" ? o[k] : null; };
+const FINAL = () => DIAS.length; // a página O meu 2027
+const ULT = () => DIAS.length - 1; // o último dia
 const tituloDia = i => (obraVal(i, "titulo") ?? DIAS[i].t).trim() || "Dia em aberto";
 const ideiaDia = i => (obraVal(i, "ideia") ?? DIAS[i].ideia).trim();
 
@@ -59,6 +62,7 @@ const novoLembrete = () => ({ id: novoId(), texto: "", dias: [false, false, fals
 
 function estadoInicial() {
   return {
+    d0: { feito: [false, false, false] },
     d1: { areas: AREAS_PADRAO.map(n => ({ id: novoId(), nome: n, texto: "", subs: [] })), respostas: {} },
     d2: { certo: [""], errado: [""], aprendi: [""], orgulho: [""], palavra: "", desabafo: "" },
     d3: { notas: {} },
@@ -105,12 +109,13 @@ function setPath(path, v) {
 
 /* ---------- espaço de construção (prévia do dia e roteiro do vídeo) ---------- */
 const OBRA = {}; // { d01: {previa, roteiro} }
-const obraId = i => "d" + String(i + 1).padStart(2, "0");
+const obraId = i => "d" + String(i).padStart(2, "0");
 const VER_OBRA = () => DEMO || admin;
 let obraDb = null;
 const obraTimers = {}, obraGravando = new Set(), obraSujos = new Set();
 
 const PREVIAS_PADRAO = {
+  d00: "Ela entra na ferramenta com a conta Google, coloca a ferramenta na tela de início do celular para usar como um aplicativo e testa o microfone do teclado numa caixa de texto.",
   d01: "A página é uma série de perguntas, as mesmas do roteiro do vídeo, para ela preencher e também se inspirar para responder pelo microfone numa conversa com o Claude.",
   d02: "Ela olha para 2026: o que deu certo, o que não deu, o que aprendeu e do que se orgulha, a palavra que resume o ano e um desabafo livre.",
   d03: "A roda da vida com 8 áreas. Embaixo da roda, uma barra de 0 a 10 para cada área. A cor de cada área na roda muda conforme o nível que ela marca.",
@@ -139,7 +144,7 @@ async function iniciarObra() {
     snap.docs.forEach(d => {
       if (!d.exists || obraSujos.has(d.id) || obraGravando.has(d.id)) return;
       OBRA[d.id] = { ...(d.data() || {}) };
-      if (cur < 10 && obraId(cur) === d.id) {
+      if (cur < FINAL() && obraId(cur) === d.id) {
         const foco = document.activeElement;
         ["titulo", "ideia", "previa", "roteiro"].forEach(k => { const t = document.getElementById(`obra-${k}`); if (t && t !== foco && typeof OBRA[d.id][k] === "string" && t.value !== OBRA[d.id][k]) t.value = OBRA[d.id][k]; });
         const h = $("#sheet h2.day"); if (h) h.textContent = tituloDia(cur);
@@ -170,12 +175,12 @@ async function gravarObra(id) {
   obraGravando.delete(id);
 }
 function textoObra() {
-  return DIAS.map((_, i) => { const o = OBRA[obraId(i)] || {}; return `DIA ${i + 1}. ${tituloDia(i).toUpperCase()}\nTexto de abertura: ${ideiaDia(i) || "(em branco)"}\nPrévia do dia: ${(o.previa ?? PREVIAS_PADRAO[obraId(i)] ?? "").trim() || "(em branco)"}\nRoteiro do vídeo: ${(o.roteiro || "").trim() || "(em branco)"}`; }).join("\n\n");
+  return DIAS.map((_, i) => { const o = OBRA[obraId(i)] || {}; return `DIA ${i}. ${tituloDia(i).toUpperCase()}\nTexto de abertura: ${ideiaDia(i) || "(em branco)"}\nPrévia do dia: ${(o.previa ?? PREVIAS_PADRAO[obraId(i)] ?? "").trim() || "(em branco)"}\nRoteiro do vídeo: ${(o.roteiro || "").trim() || "(em branco)"}`; }).join("\n\n");
 }
 function obraHTML(i) {
   if (!VER_OBRA()) return "";
   const o = OBRA[obraId(i)] || {};
-  return `<div class="obra noprint"><h3>Construção do dia ${i + 1}</h3><p class="quem">Só você vê esta parte. As participantes não veem. <span class="salvo" id="obra-salvo"></span></p>
+  return `<div class="obra noprint"><h3>Construção do dia ${i}</h3><p class="quem">Só você vê esta parte. As participantes não veem. <span class="salvo" id="obra-salvo"></span></p>
   <label class="lab"><span>Título do dia</span><input type="text" id="obra-titulo" data-obra="titulo" value="${esc(o.titulo ?? DIAS[i].t)}" placeholder="O título que aparece na aba e no alto da página"></label>
   <label class="lab"><span>Texto de abertura</span><textarea id="obra-ideia" data-obra="ideia" style="min-height:90px" placeholder="O texto que aparece logo abaixo do título">${esc(o.ideia ?? DIAS[i].ideia)}</textarea></label>
   <label class="lab"><span>Prévia do dia</span><textarea id="obra-previa" data-obra="previa" placeholder="Como vai ser este dia: o que ela faz, o que aparece na página e o que o Claude faz.">${esc(o.previa ?? PREVIAS_PADRAO[obraId(i)] ?? "")}</textarea></label>
@@ -184,8 +189,8 @@ function obraHTML(i) {
 }
 
 /* ---------- datas ---------- */
-function abertura(i) { return new Date(new Date(`${INICIO}T00:00:00-03:00`).getTime() + i * DIA_MS); }
-function aberto(i) { return DEMO || admin || Date.now() >= abertura(Math.min(i, 9)).getTime(); }
+function abertura(i) { return new Date(new Date(`${INICIO}T00:00:00-03:00`).getTime() + (Math.max(i, 1) - 1) * DIA_MS); }
+function aberto(i) { return i === 0 || DEMO || admin || Date.now() >= abertura(Math.min(i, ULT())).getTime(); }
 const fmtData = d => d.toLocaleDateString("pt-BR", { day: "numeric", month: "long", timeZone: "America/Sao_Paulo" });
 
 /* ---------- ajudantes ---------- */
@@ -277,33 +282,33 @@ function resumoHTML(texto) {
 
 /* ---------- textos para o Claude ---------- */
 function textoDia(i) {
-  const L = [`DIA ${i + 1}. ${tituloDia(i).toUpperCase()}`];
+  const L = [`DIA ${i}. ${tituloDia(i).toUpperCase()}`];
   const v = s => (s || "").trim() || "(em branco)";
-  if (i === 0) PERGUNTAS_D1.forEach(g => {
+  if (i === 1) PERGUNTAS_D1.forEach(g => {
     L.push(`\n${g.grupo.toUpperCase()}`);
     g.itens.forEach(([k, q]) => L.push(`\n${q}\n${v(S.d1.respostas[k])}`));
   });
-  if (i === 1) {
+  if (i === 2) {
     [["certo", "O que deu certo em 2026"], ["errado", "O que não deu certo"], ["aprendi", "O que eu aprendi"], ["orgulho", "Do que eu me orgulho"]].forEach(([k, t]) => {
       const it = S.d2[k].filter(x => x.trim()); L.push(`\n${t}:`); L.push(it.length ? it.map(x => `- ${x}`).join("\n") : "(em branco)");
     });
     L.push(`\nA palavra que resume 2026: ${v(S.d2.palavra)}`, `\nDesabafo: ${v(S.d2.desabafo)}`);
   }
-  if (i === 2) areas().slice(0, 8).forEach(a => L.push(`${a.nome}: ${nota(a.id) ?? "sem nota"}`));
-  if (i === 5) S.d6.objetivos.forEach((o, k) => {
+  if (i === 3) areas().slice(0, 8).forEach(a => L.push(`${a.nome}: ${nota(a.id) ?? "sem nota"}`));
+  if (i === 6) S.d6.objetivos.forEach((o, k) => {
     if (!o.titulo.trim()) return;
     L.push(`\nObjetivo ${k + 1}: ${o.titulo}`, `Área: ${areaNome(o.area) || "sem área"}`, `Como vou saber que consegui: ${v(o.sinal)}`, `Por que importa: ${v(o.porque)}`, `Prazo: ${o.trimestre ? o.trimestre + "º trimestre" : "sem prazo"}`);
   });
-  if (i === 6) projetos().forEach(p => {
+  if (i === 7) projetos().forEach(p => {
     L.push(`\nProjeto: ${v(p.nome)}${p.objetivo ? ` (objetivo: ${p.objetivo})` : ""}`);
     p.tarefas.filter(t => t.texto.trim()).forEach(t => L.push(`- [${t.feita ? "x" : " "}] ${t.texto}`));
   });
-  if (i === 7) {
+  if (i === 8) {
     const ts = todasTarefas(), f = ts.filter(t => t.feita).length;
     L.push(`Tarefas: ${ts.length}. Feitas: ${f}. Pontos: ${f * PONTOS_TAREFA}.`);
     NIVEIS.slice(1).forEach((n, k) => L.push(`Recompensa do nível ${n.nome}: ${v(S.d8.recompensas[k])}`));
   }
-  if (i === 8) {
+  if (i === 9) {
     L.push("Semana ideal:");
     DIAS_SEMANA.forEach((d, a) => {
       const ps = PERIODOS.map((p, b) => { const t = (S.d9.semana[`d${a}p${b}`] || "").trim(); return t ? `${p}: ${t}` : ""; }).filter(Boolean);
@@ -312,16 +317,38 @@ function textoDia(i) {
     L.push("\nLembretes:");
     S.d9.lembretes.filter(l => l.texto.trim()).forEach(l => L.push(`- ${l.texto} (${DIAS_SEMANA.filter((_, k) => l.dias[k]).join(", ") || "sem dias marcados"})`));
   }
-  if (i === 9) {
+  if (i === 10) {
     L.push(`Dia da revisão semanal: ${S.d10.diaRevisao}`);
     [["semanal", "Revisão semanal"], ["mensal", "Revisão mensal"], ["trimestral", "Revisão trimestral"]].forEach(([k, t]) => L.push(`\n${t}:\n${S.d10[k].filter(x => x.trim()).map(x => `- ${x}`).join("\n")}`));
     L.push(`\nPrimeiro passo de janeiro: ${v(S.d10.primeiroPasso)}${S.d10.dataPasso ? ` (${S.d10.dataPasso.split("-").reverse().join("/")})` : ""}`);
   }
   return L.join("\n");
 }
-const textoTudo = () => DIAS.map((d, i) => d.t ? textoDia(i) : "").filter(Boolean).join("\n\n");
+const textoTudo = () => DIAS.map((d, i) => d.t && i > 0 ? textoDia(i) : "").filter(Boolean).join("\n\n");
 
 /* ---------- dias ---------- */
+function dia0() {
+  const passos = ["Entrei na ferramenta com a minha conta Google", "Coloquei a ferramenta na tela de início do celular", "Testei o microfone numa caixa de texto"];
+  return `<section class="sec"><h3>1. Entre com a sua conta Google</h3>
+  <p>Toque em "Entrar com o Google" e escolha a sua conta. As suas respostas ficam guardadas nessa conta, e você encontra tudo de novo em qualquer aparelho em que entrar com ela.</p></section>
+  <section class="sec"><h3>2. Coloque a ferramenta na tela de início</h3>
+  <p>Assim ela abre como um aplicativo, com o ícone do 27, sem você precisar procurar o endereço.</p>
+  <div class="passos"><div class="passo"><h4>No iPhone</h4><ol>
+    <li>Abra a ferramenta no Safari.</li>
+    <li>Toque no botão de compartilhar, o quadrado com a seta para cima.</li>
+    <li>Desça a lista e toque em "Adicionar à Tela de Início".</li>
+    <li>Toque em "Adicionar".</li></ol></div>
+  <div class="passo"><h4>No Android</h4><ol>
+    <li>Abra a ferramenta no Chrome.</li>
+    <li>Toque nos 3 pontinhos, no canto de cima.</li>
+    <li>Toque em "Adicionar à tela inicial" (em alguns celulares aparece "Instalar app").</li>
+    <li>Confirme em "Adicionar" ou "Instalar".</li></ol></div></div></section>
+  <section class="sec"><h3>3. Use o microfone para responder</h3>
+  <p>Nos próximos dias, você pode falar em vez de escrever. Toque numa caixa de texto e, no teclado do celular, toque no microfone. Fale do seu jeito, sem se preocupar com a ordem, e o texto aparece na caixa.</p>
+  <label class="lab"><span>Teste aqui: fale qualquer coisa pelo microfone</span>${ta("d0.teste", 3, "Toque aqui e use o microfone do teclado")}</label></section>
+  <section class="sec"><h3>Tudo pronto?</h3>
+  ${passos.map((t, k) => `<label class="chk ${S.d0.feito[k] ? "feita" : ""}"><input type="checkbox" data-act="d0" data-k="${k}" ${S.d0.feito[k] ? "checked" : ""}><span>${esc(t)}</span></label>`).join("")}</section>`;
+}
 function textoPerguntasD1() {
   return `Vou me apresentar para você. Me faça estas perguntas, uma de cada vez, e espere a minha resposta antes de seguir. No fim, organize tudo o que eu contei numa ordem lógica.\n\n${PERGUNTAS_D1.map(g => `${g.grupo}:\n${g.itens.map(q => `- ${q[1]}`).join("\n")}`).join("\n\n")}`;
 }
@@ -426,9 +453,9 @@ function dia10() {
   <label class="lab"><span>O que você vai fazer primeiro</span>${ta("d10.primeiroPasso", 2)}</label>
   <label class="lab"><span>Quando</span><input type="date" data-p="d10.dataPasso" value="${esc(S.d10.dataPasso)}" min="2027-01-01" max="2027-01-31"></label></section>
   <section class="sec"><h3>O seu plano completo</h3><p class="note">Agora a ferramenta cruza tudo o que você escreveu nos 10 dias.</p>
-  <button class="btn primary" data-act="ir" data-d="10">Ver o meu 2027</button></section>`;
+  <button class="btn primary" data-act="ir" data-d="${FINAL()}">Ver o meu 2027</button></section>`;
 }
-const RENDER = [dia1, dia2, dia3, diaAberto, diaAberto, dia6, dia7, dia8, dia9, dia10];
+const RENDER = [dia0, dia1, dia2, dia3, diaAberto, diaAberto, dia6, dia7, dia8, dia9, dia10];
 
 function finalView() {
   const ps = projetos().filter(p => p.nome.trim());
@@ -455,43 +482,44 @@ function finalView() {
   ${S.d9.lembretes.some(l => l.texto.trim()) ? `<section class="sec"><h3>Os lembretes</h3><ul>${S.d9.lembretes.filter(l => l.texto.trim()).map(l => `<li>${esc(l.texto)}: ${esc(DIAS_SEMANA.filter((_, k) => l.dias[k]).join(", ").toLowerCase() || "sem dias marcados")}</li>`).join("")}</ul></section>` : ""}
   <section class="sec"><h3>O ritual de revisão</h3><p>Revisão semanal: ${esc(S.d10.diaRevisao.toLowerCase())}.</p>
   ${S.d10.primeiroPasso.trim() ? `<p><b>O primeiro passo de janeiro:</b> ${esc(S.d10.primeiroPasso)}${S.d10.dataPasso ? `, em ${esc(S.d10.dataPasso.split("-").reverse().join("/"))}` : ""}.</p>` : ""}</section>
-  <div class="foot noprint"><button class="btn" data-act="ir" data-d="9">Voltar para o dia 10</button>${dentroDoClaude ? "" : `<button class="btn" data-act="imprimir">Salvar em PDF</button>`}</div>`;
+  <div class="foot noprint"><button class="btn" data-act="ir" data-d="${ULT()}">Voltar para o dia ${ULT()}</button>${dentroDoClaude ? "" : `<button class="btn" data-act="imprimir">Salvar em PDF</button>`}</div>`;
 }
 
 /* ---------- tela ---------- */
-function concluidosN() { return DIAS.filter((_, i) => S.concluidos[i]).length; }
+function concluidosN() { return DIAS.filter((d, i) => d.t && S.concluidos[i]).length; }
+const totalDias = () => DIAS.filter(d => d.t).length;
 function renderTrail() {
   const el = $("#trail"); if (!el) return;
   el.innerHTML = DIAS.map((d, i) => {
     const ab = aberto(i), ok = S.concluidos[i];
-    return `<button class="daybtn${i === cur ? " on" : ""}${ok ? " done" : ""}${ab ? "" : " locked"}${d.t ? "" : " aberto"}" data-act="ir" data-d="${i}" aria-current="${i === cur ? "page" : "false"}"><span class="n">${i + 1}</span><span class="t">${esc(tituloDia(i))}</span><span class="st">${ok ? "feito" : ab ? "" : esc(fmtData(abertura(i)).replace(" de ", " "))}</span></button>`;
-  }).join("") + `<button class="daybtn final${cur === 10 ? " on" : ""}${aberto(9) ? "" : " locked"}" data-act="ir" data-d="10"><span class="n">★</span><span class="t">O meu 2027</span><span class="st"></span></button>`;
-  const n = concluidosN(); $("#ovbar").style.width = n * 10 + "%"; $("#ovpct").textContent = `${n} de 10`;
+    return `<button class="daybtn${i === cur ? " on" : ""}${ok ? " done" : ""}${ab ? "" : " locked"}${d.t ? "" : " aberto"}" data-act="ir" data-d="${i}" aria-current="${i === cur ? "page" : "false"}"><span class="n">${i}</span><span class="t">${esc(tituloDia(i))}</span><span class="st">${ok ? "feito" : ab ? "" : esc(fmtData(abertura(i)).replace(" de ", " "))}</span></button>`;
+  }).join("") + `<button class="daybtn final${cur === FINAL() ? " on" : ""}${aberto(ULT()) ? "" : " locked"}" data-act="ir" data-d="${FINAL()}"><span class="n">★</span><span class="t">O meu 2027</span><span class="st"></span></button>`;
+  const n = concluidosN(); $("#ovbar").style.width = Math.round((n * 100) / totalDias()) + "%"; $("#ovpct").textContent = `${n} de ${totalDias()}`;
 }
 function crescer(t) { t.style.height = "auto"; t.style.height = t.scrollHeight + 2 + "px"; }
 function crescerTodos() { document.querySelectorAll("textarea.auto").forEach(crescer); }
 function renderSheet() {
   const sh = $("#sheet");
   requestAnimationFrame(crescerTodos);
-  if (cur === 10) { sh.innerHTML = aberto(9) ? finalView() : bloqueado(9, "O meu 2027"); return; }
+  if (cur === FINAL()) { sh.innerHTML = aberto(ULT()) ? finalView() : bloqueado(ULT(), "O meu 2027"); return; }
   const d = DIAS[cur];
   if (!aberto(cur)) { sh.innerHTML = bloqueado(cur, tituloDia(cur)); return; }
-  sh.innerHTML = `<div class="eyebrow">Dia ${cur + 1}${DEMO ? "" : ` · ${esc(fmtData(abertura(cur)))}`}</div><h2 class="day">${esc(tituloDia(cur))}</h2><p class="ideia" id="ideia-dia" ${ideiaDia(cur) ? "" : "hidden"}>${esc(ideiaDia(cur))}</p>
+  sh.innerHTML = `<div class="eyebrow">Dia ${cur}${DEMO || cur === 0 ? "" : ` · ${esc(fmtData(abertura(cur)))}`}</div><h2 class="day">${esc(tituloDia(cur))}</h2><p class="ideia" id="ideia-dia" ${ideiaDia(cur) ? "" : "hidden"}>${esc(ideiaDia(cur))}</p>
   ${obraHTML(cur)}
   ${RENDER[cur]()}
   ${d.claude ? `<div class="claude"><h3>Leve para o Claude</h3><p>${esc(d.claude)}</p><p class="note">O botão copia a mensagem junto com as suas respostas deste dia. Cole no seu projeto do Claude.</p>
   <button class="btn" data-act="copiar" data-d="${cur}">Copiar para o Claude</button></div>` : ""}
   <div class="foot"><button class="btn" data-act="ir" data-d="${cur - 1}" ${cur === 0 ? "disabled" : ""}>Dia anterior</button>
   ${d.t ? `<button class="btn ${S.concluidos[cur] ? "" : "primary"}" data-act="concluir" data-d="${cur}">${S.concluidos[cur] ? "Dia concluído" : "Marcar o dia como concluído"}</button>` : ""}
-  <button class="btn" data-act="ir" data-d="${cur + 1}">${cur === 9 ? "O meu 2027" : "Próximo dia"}</button></div>`;
+  <button class="btn" data-act="ir" data-d="${cur + 1}">${cur === ULT() ? "O meu 2027" : "Próximo dia"}</button></div>`;
 }
 function bloqueado(i, titulo) {
-  return `<div class="lock"><div class="eyebrow">${titulo === "O meu 2027" ? "Abre junto com o dia 10" : `Dia ${i + 1}`}</div><p class="big">${esc(titulo)}</p><p>Este dia abre em ${esc(fmtData(abertura(i)))}.</p></div>`;
+  return `<div class="lock"><div class="eyebrow">${titulo === "O meu 2027" ? `Abre junto com o dia ${ULT()}` : `Dia ${i}`}</div><p class="big">${esc(titulo)}</p><p>Este dia abre em ${esc(fmtData(abertura(i)))}.</p></div>`;
 }
 function renderApp() {
   $("#app").innerHTML = `<div class="wrap">
   <header class="top"><div class="brand"><small>10 dias com o Claude</small><h1>Meu 2027</h1></div>
-  <div class="topright"><div class="overall"><div class="bar"><i id="ovbar"></i></div><b id="ovpct">0 de 10</b></div><span class="status" id="status">${DEMO ? "Prévia" : "Salvo"}</span>
+  <div class="topright"><div class="overall"><div class="bar"><i id="ovbar"></i></div><b id="ovpct"></b></div><span class="status" id="status">${DEMO ? "Prévia" : "Salvo"}</span>
   ${usuario ? `<button class="linkbtn" data-act="sair">Sair</button>` : ""}</div></header>
   ${DEMO ? `<p class="aviso">Você está vendo a prévia. Todos os dias estão abertos e o resumo automático não funciona.</p>` : ""}
   ${admin && !DEMO ? `<p class="aviso">Você vê todos os dias abertos porque é administradora. As participantes veem cada dia na data dele.</p>` : ""}
@@ -499,9 +527,9 @@ function renderApp() {
   renderTrail(); renderSheet();
 }
 function ir(i) {
-  if (i < 0 || i > 10) return;
+  if (i < 0 || i > FINAL()) return;
   cur = i; confirmarProjetos = false;
-  try { history.replaceState(null, "", i === 10 ? "#meu2027" : `#dia${i + 1}`); } catch (e) { }
+  try { history.replaceState(null, "", i === FINAL() ? "#meu2027" : `#dia${i}`); } catch (e) { }
   renderTrail(); renderSheet();
   $("#sheet").scrollIntoView({ behavior: "smooth", block: "start" });
 }
@@ -509,7 +537,7 @@ function ir(i) {
 /* ---------- eventos ---------- */
 document.addEventListener("input", e => {
   const t = e.target;
-  if (t.dataset.obra && cur < 10) {
+  if (t.dataset.obra && cur < FINAL()) {
     const id = obraId(cur); OBRA[id] = { ...(OBRA[id] || {}), [t.dataset.obra]: t.value }; mudouObra(id);
     if (t.dataset.obra === "titulo") { const h = $("#sheet h2.day"); if (h) h.textContent = tituloDia(cur); renderTrail(); }
     if (t.dataset.obra === "ideia") { const p = $("#ideia-dia"); if (p) { p.textContent = ideiaDia(cur); p.hidden = !ideiaDia(cur); } }
@@ -530,6 +558,7 @@ document.addEventListener("input", e => {
 });
 document.addEventListener("change", e => {
   const t = e.target;
+  if (t.dataset && t.dataset.act === "d0") { S.d0.feito[+t.dataset.k] = t.checked; mudou(); t.closest(".chk").classList.toggle("feita", t.checked); return; }
   if (t.dataset && t.dataset.act === "feita") {
     const tk = projetos()[+t.dataset.pi]?.tarefas[+t.dataset.k];
     if (tk) { tk.feita = t.checked; mudou(); renderSheet(); if (t.checked) toast(`Mais ${PONTOS_TAREFA} pontos`); }
@@ -588,7 +617,7 @@ async function gerarResumo(tipo, btn) {
   if (DEMO) { toast("Na prévia, o resumo automático não funciona. Ele funciona com o login ativado."); return; }
   btn.disabled = true; const orig = btn.textContent; btn.textContent = "Gerando, pode levar até 1 minuto";
   try {
-    const j = await chamarClaude(tipo, tipo === "dia1" ? textoDia(0) : textoTudo());
+    const j = await chamarClaude(tipo, tipo === "dia1" ? textoDia(1) : textoTudo());
     if (!j.texto) throw new Error("O resumo veio vazio. Tente de novo.");
     S.resumos[tipo] = j.texto; pendente = true; await salvar(); renderSheet();
   } catch (err) { toast(err.message); btn.disabled = false; btn.textContent = orig; }
@@ -606,7 +635,7 @@ async function gerarProjetos(btn) {
   if (!S.d6.objetivos.some(o => o.titulo.trim())) { toast("Escreva pelo menos um objetivo no dia 6."); return; }
   btn.disabled = true; btn.textContent = "O Claude está montando os projetos";
   try {
-    const j = await chamarClaude("projetos", textoDia(5));
+    const j = await chamarClaude("projetos", textoDia(6));
     const lst = Array.isArray(j.projetos) ? j.projetos : [];
     if (!lst.length) throw new Error("O Claude não devolveu projetos. Tente de novo.");
     S.d7.projetos = lst.map(p => {
@@ -621,10 +650,10 @@ async function gerarProjetos(btn) {
 /* ---------- início ---------- */
 function diaInicial() {
   const m = /^#dia(\d+)$/.exec(location.hash || "");
-  if (m) { const i = +m[1] - 1; if (i >= 0 && i < 10) return i; }
-  if (location.hash === "#meu2027") return 10;
+  if (m) { const i = +m[1]; if (i >= 0 && i <= ULT()) return i; }
+  if (location.hash === "#meu2027") return FINAL();
   let ult = 0;
-  for (let i = 0; i < 10; i++) if (aberto(i)) ult = i;
+  for (let i = 0; i <= ULT(); i++) if (aberto(i)) ult = i;
   for (let i = 0; i <= ult; i++) if (!S.concluidos[i] && DIAS[i].t) return i;
   return ult;
 }

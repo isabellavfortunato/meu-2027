@@ -90,6 +90,11 @@ textarea:focus,input:focus,select:focus{outline:2px solid var(--accent);outline-
 .obra textarea{background:var(--paper);min-height:140px}
 .obra .lab>span{font-family:var(--display);font-weight:600;font-size:24px}
 .obra .salvo{font-family:var(--cond);font-size:20px;color:var(--muted)}
+.passos{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-top:10px}
+.passo{background:var(--soft);border-radius:12px;padding:16px 18px}
+.passo h4{margin:0 0 6px;font-family:var(--display);font-weight:600;font-size:26px}
+.passo ol{margin:0;padding-left:24px}
+.passo li{margin:4px 0}
 .dica-mic{background:var(--accent-soft);border-radius:12px;padding:18px 20px;margin:4px 0 6px}
 .dica-mic h3{margin:0 0 6px;font-family:var(--display);font-weight:600;font-size:30px}
 .dica-mic p{margin:0 0 12px;max-width:66ch}

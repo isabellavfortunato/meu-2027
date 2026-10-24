@@ -194,7 +194,7 @@ function rodaSVG(interativa) {
     const am = ini + (i + 0.5) * ang, lx = c + (R + 14) * Math.cos(am), ly = c + (R + 14) * Math.sin(am);
     const anchor = Math.abs(Math.cos(am)) < 0.2 ? "middle" : Math.cos(am) > 0 ? "start" : "end";
     const curto = a.nome.split(" ")[0].slice(0, 15);
-    labels += `<text x="${lx.toFixed(1)}" y="${(ly + 4).toFixed(1)}" text-anchor="${anchor}" font-family="Sofia Sans Condensed, Arial Narrow, sans-serif" font-size="14" fill="var(--ink)">${esc(curto)} <tspan fill="var(--muted)">${nota(a.id) ?? "–"}</tspan></text>`;
+    labels += `<text x="${lx.toFixed(1)}" y="${(ly + 4).toFixed(1)}" text-anchor="${anchor}" font-family="Sofia Sans Condensed, Arial Narrow, sans-serif" font-size="16" fill="var(--ink)">${esc(curto)} <tspan fill="var(--muted)">${nota(a.id) ?? "–"}</tspan></text>`;
   });
   return `<svg viewBox="0 0 ${W} ${W}" role="img" aria-label="Roda da vida">${grade}${segs}${labels}</svg>`;
 }

@@ -494,6 +494,7 @@ function renderApp() {
   $("#app").innerHTML = `<div class="wrap">
   <header class="top"><div class="brand"><h1>Meu 2027</h1><p class="sub-marca">Planejamento com o Claude</p></div>
   <div class="topright"><div class="overall"><div class="bar"><i id="ovbar"></i></div><b id="ovpct"></b></div><span class="status" id="status">${DEMO ? "Prévia" : "Salvo"}</span>
+  ${admin || DEMO ? `<button class="linkbtn" data-act="textos-antigos">Textos antigos</button>` : ""}
   ${usuario ? `<button class="linkbtn" data-act="sair">Sair</button>` : ""}</div></header>
   ${DEMO ? `<p class="aviso">Você está vendo a prévia. Todos os dias estão abertos e o resumo automático não funciona.</p>` : ""}
   ${admin && !DEMO ? `<p class="aviso">Você vê todos os dias abertos porque é administradora. As participantes veem cada dia na data dele.</p>` : ""}
@@ -559,12 +560,32 @@ document.addEventListener("click", async e => {
     case "copiar": copiar(`${DIAS[+b.dataset.d].claude}\n\n${textoDia(+b.dataset.d)}`); return;
     case "resumo": gerarResumo(b.dataset.tipo, b); return;
     case "imprimir": window.print(); return;
+    case "textos-antigos": mostrarTextosAntigos(); return;
+    case "copiar-antigos": copiar(textoAntigo); return;
     case "sair": await salvar(); await authMod.signOut(auth); location.reload(); return;
     default: return;
   }
   mudou(); renderSheet();
 });
 
+// textos escritos na antiga caixa de construção (título, abertura, prévia e roteiro), só para a administradora
+let textoAntigo = "";
+async function mostrarTextosAntigos() {
+  let obra = {};
+  try { const raw = localStorage.getItem("meu2027-construcao-v1"); if (raw) obra = JSON.parse(raw); } catch (e) { }
+  if (!DEMO && fs && usuario) {
+    try { const snap = await fs.getDoc(fs.doc(db, "participantes", usuario.uid)); const c = snap.exists() && snap.data().construcao; if (c) obra = { ...obra, ...JSON.parse(c) }; }
+    catch (e) { console.error(e); toast("Não consegui buscar os textos na nuvem."); }
+  }
+  const campos = [["titulo", "Título"], ["ideia", "Texto de abertura"], ["previa", "Prévia do dia"], ["roteiro", "Roteiro do vídeo"]];
+  const dias = DIAS.map((_, i) => ({ i, o: obra["d" + String(i).padStart(2, "0")] || {} })).filter(x => campos.some(([k]) => typeof x.o[k] === "string" && x.o[k].trim()));
+  textoAntigo = dias.map(({ i, o }) => `DIA ${i}\n` + campos.filter(([k]) => typeof o[k] === "string" && o[k].trim()).map(([k, t]) => `${t}: ${o[k].trim()}`).join("\n\n")).join("\n\n\n");
+  $("#sheet").innerHTML = `<div class="eyebrow">Só você vê</div><h2 class="day">Textos antigos</h2>
+  <p class="note">O que você escreveu na antiga caixa de construção, guardado ${DEMO ? "neste navegador" : "na sua conta"}.</p>
+  ${dias.length ? `<button class="btn primary" data-act="copiar-antigos">Copiar tudo</button>` + dias.map(({ i, o }) => `<section class="sec"><h3>Dia ${i}</h3>${campos.filter(([k]) => typeof o[k] === "string" && o[k].trim()).map(([k, t]) => `<div class="sub">${t}</div><p style="white-space:pre-wrap;margin:0 0 10px">${esc(o[k].trim())}</p>`).join("")}</section>`).join("") : `<p class="vazio-dia">Não encontrei textos guardados ${DEMO ? "neste navegador" : "na sua conta"}.</p>`}
+  <div class="foot"><button class="btn" data-act="ir" data-d="${cur}">Voltar para o dia ${cur}</button></div>`;
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
 function copiar(texto) {
   const fallback = () => {
     const t = document.createElement("textarea"); t.value = texto; t.style.position = "fixed"; t.style.opacity = "0"; document.body.appendChild(t); t.select();

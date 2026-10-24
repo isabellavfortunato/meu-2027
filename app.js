@@ -133,7 +133,7 @@ async function iniciarObra() {
     try {
       const snap = await fs.getDoc(fs.doc(db, "participantes", usuario.uid));
       const c = snap.exists() && snap.data().construcao;
-      if (c) Object.assign(OBRA, JSON.parse(c));
+      if (c) { const nuvem = JSON.parse(c); Object.keys(nuvem).forEach(k => { if (!obraSujos.has(k)) OBRA[k] = nuvem[k]; }); }
     } catch (e) { console.error(e); }
     renderTrail(); renderSheet();
     return;
@@ -499,6 +499,13 @@ function renderTrail() {
 function crescer(t) { t.style.height = "auto"; t.style.height = t.scrollHeight + 2 + "px"; }
 function crescerTodos() { document.querySelectorAll("textarea.auto").forEach(crescer); }
 function renderSheet() {
+  const f = document.activeElement, sh0 = $("#sheet");
+  const chave = f && sh0 && sh0.contains(f) && (f.dataset.p ? `[data-p="${f.dataset.p}"]` : f.dataset.obra ? `[data-obra="${f.dataset.obra}"]` : f.id ? `#${f.id}` : null);
+  const sel = chave && typeof f.selectionStart === "number" ? [f.selectionStart, f.selectionEnd] : null;
+  desenharFolha();
+  if (chave) { const n = document.querySelector(chave); if (n) { n.focus({ preventScroll: true }); if (sel) try { n.setSelectionRange(sel[0], sel[1]); } catch (e) { } } }
+}
+function desenharFolha() {
   const sh = $("#sheet");
   requestAnimationFrame(crescerTodos);
   if (cur === FINAL()) { sh.innerHTML = aberto(ULT()) ? finalView() : bloqueado(ULT(), "O meu 2027"); return; }
@@ -685,6 +692,7 @@ async function iniciar() {
   auth = authMod.getAuth(app); db = fs.getFirestore(app);
   authMod.onAuthStateChanged(auth, async u => {
     if (!u) { usuario = null; telaLogin(); return; }
+    if (usuario && usuario.uid === u.uid) return;
     usuario = u; admin = (CFG.admins || []).map(x => x.toLowerCase()).includes((u.email || "").toLowerCase());
     try {
       const snap = await fs.getDoc(fs.doc(db, "participantes", u.uid));

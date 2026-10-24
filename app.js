@@ -67,7 +67,7 @@ function estadoInicial() {
     d2: { certo: [""], errado: [""], aprendi: [""], orgulho: [""], palavra: "", desabafo: "" },
     d3: { notas: {} },
     d6: { objetivos: [novoObjetivo(), novoObjetivo(), novoObjetivo()] },
-    d7: { projetos: [] },
+    d7: { projetos: [], extras: [] },
     d8: { recompensas: ["", "", "", ""] },
     d9: { semana: {}, lembretes: [novoLembrete(), novoLembrete(), novoLembrete()] },
     d10: {
@@ -198,9 +198,16 @@ const areas = () => S.d1.areas;
 const areaNome = id => (S.d1.areas.find(a => a.id === id) || {}).nome || "";
 const nota = id => { const v = S.d3.notas[id]; return v === "" || v == null ? null : Number(v); };
 const projetos = () => S.d7.projetos;
+const EXTRAS = ["Inbox", "Lista Avulsa"];
+function extras() {
+  if (!Array.isArray(S.d7.extras)) S.d7.extras = [];
+  EXTRAS.forEach((tipo, k) => { if (!S.d7.extras[k]) S.d7.extras[k] = { ...novoProjeto(), tipo }; S.d7.extras[k].tipo = tipo; });
+  return S.d7.extras;
+}
+const listaProj = nome => (nome === "extras" ? extras() : projetos());
 function todasTarefas() {
   const out = [];
-  projetos().forEach(p => p.tarefas.forEach(t => { if (t.texto.trim()) out.push({ ...t, projeto: p }); }));
+  [...projetos(), ...extras()].forEach(p => p.tarefas.forEach(t => { if (t.texto.trim()) out.push({ ...t, projeto: p }); }));
   return out;
 }
 function nivelDe(pts) { let i = 0; NIVEIS.forEach((n, k) => { if (pts >= n.pts) i = k; }); return i; }
@@ -302,8 +309,9 @@ function textoDia(i) {
     if (!o.titulo.trim()) return;
     L.push(`\nObjetivo ${k + 1}: ${o.titulo}`, `Área: ${areaNome(o.area) || "sem área"}`, `Como vou saber que consegui: ${v(o.sinal)}`, `Por que importa: ${v(o.porque)}`, `Prazo: ${o.trimestre ? o.trimestre + "º trimestre" : "sem prazo"}`);
   });
-  if (i === 7) projetos().forEach(p => {
-    L.push(`\nProjeto: ${v(p.nome)}${p.objetivo ? ` (objetivo: ${p.objetivo})` : ""}`);
+  if (i === 7) [...projetos(), ...extras()].forEach(p => {
+    if (!p.nome.trim() && !p.tarefas.some(t => t.texto.trim())) return;
+    L.push(`\n${p.tipo ? p.tipo + ": " : "Projeto: "}${v(p.nome)}${p.objetivo ? ` (objetivo: ${p.objetivo})` : ""}`);
     p.tarefas.filter(t => t.texto.trim()).forEach(t => L.push(`- [${t.feita ? "x" : " "}] ${t.texto}`));
   });
   if (i === 8) {
@@ -413,16 +421,18 @@ function dia7() {
   <p class="note">O Claude transforma os objetivos do dia 6 em projetos com ações. Depois, você muda o que quiser e vai marcando as ações feitas ao longo do ano.</p>
   <div class="painel-topo"><button class="btn primary" data-act="gerar-projetos">${confirmarProjetos ? "Clique de novo para substituir os projetos" : temConteudo ? "Gerar os projetos de novo" : "Transformar os meus objetivos em projetos"}</button>
   <span class="contagem">${f} de ${ts.length} ações feitas</span></div>
-  <div class="projetos">${ps.map((p, i) => {
-    const pts = p.tarefas.filter(t => t.texto.trim()), pf = pts.filter(t => t.feita).length, pc = pts.length ? Math.round((pf * 100) / pts.length) : 0;
-    return `<div class="projeto">
-    <div class="cardhead"><textarea class="auto pobj" rows="1" data-p="d7.projetos.${i}.objetivo" placeholder="Objetivo">${esc(p.objetivo)}</textarea><button class="x" data-act="limpar-proj" data-i="${i}" aria-label="Limpar o projeto">×</button></div>
-    <textarea class="auto pnome" rows="1" data-p="d7.projetos.${i}.nome" placeholder="Nome do projeto">${esc(p.nome)}</textarea>
+  <div class="projetos">${ps.map((p, i) => cardEditavel(p, i, "projetos")).join("")}${extras().map((p, i) => cardEditavel(p, i, "extras")).join("")}</div></section>`;
+}
+function cardEditavel(p, i, nomeLista) {
+  const base = `d7.${nomeLista}.${i}`, dl = `data-lista="${nomeLista}"`;
+  const pts = p.tarefas.filter(t => t.texto.trim()), pf = pts.filter(t => t.feita).length, pc = pts.length ? Math.round((pf * 100) / pts.length) : 0;
+  return `<div class="projeto${p.tipo ? " extra" : ""}">
+    <div class="cardhead">${p.tipo ? `<p class="ptipo">${esc(p.tipo)}</p>` : `<textarea class="auto pobj" rows="1" data-p="${base}.objetivo" placeholder="Objetivo">${esc(p.objetivo)}</textarea>`}<button class="x" data-act="limpar-proj" ${dl} data-i="${i}" aria-label="Limpar o projeto">×</button></div>
+    <textarea class="auto pnome" rows="1" data-p="${base}.nome" placeholder="Nome do projeto">${esc(p.nome)}</textarea>
     <div class="prog" aria-label="Ações feitas"><i style="width:${pc}%"></i></div>
-    ${p.tarefas.map((t, k) => `<div class="tarefa${t.feita ? " feita" : ""}"><input type="checkbox" data-act="feita" data-pi="${i}" data-k="${k}" ${t.feita ? "checked" : ""} aria-label="Ação feita"><textarea class="auto" rows="1" data-p="d7.projetos.${i}.tarefas.${k}.texto" placeholder="Ação ${k + 1}">${esc(t.texto)}</textarea><button class="x" data-act="rm-tarefa" data-pi="${i}" data-k="${k}" aria-label="Tirar a ação">×</button></div>`).join("")}
-    <button class="btn small" data-act="add-tarefa" data-pi="${i}">Acrescentar uma ação</button>
+    ${p.tarefas.map((t, k) => `<div class="tarefa${t.feita ? " feita" : ""}"><input type="checkbox" data-act="feita" ${dl} data-pi="${i}" data-k="${k}" ${t.feita ? "checked" : ""} aria-label="Ação feita"><textarea class="auto" rows="1" data-p="${base}.tarefas.${k}.texto" placeholder="Ação ${k + 1}">${esc(t.texto)}</textarea><button class="x" data-act="rm-tarefa" ${dl} data-pi="${i}" data-k="${k}" aria-label="Tirar a ação">×</button></div>`).join("")}
+    <button class="btn small" data-act="add-tarefa" ${dl} data-pi="${i}">Acrescentar uma ação</button>
   </div>`;
-  }).join("")}</div></section>`;
 }
 function dia8() {
   return `<section class="sec"><div class="cal"><table><thead><tr><th></th>${DIAS_SEMANA.map(d => `<th>${d}</th>`).join("")}</tr></thead><tbody>
@@ -436,12 +446,12 @@ function dia9() {
   <button class="btn small addrow" data-act="add-lembrete">Acrescentar um lembrete</button>
   <p class="note">Marque os dias da semana em que cada lembrete vale.</p></section>`;
 }
-function projetoCard(p, i, comObjetivo) {
+function projetoCard(p, i, comObjetivo, nomeLista = "projetos") {
   const pts = p.tarefas.filter(t => t.texto.trim()), pf = pts.filter(t => t.feita).length, pc = pts.length ? Math.round((pf * 100) / pts.length) : 0;
   return `<div class="pcard">${comObjetivo && p.objetivo ? `<p class="pobj-txt">${esc(p.objetivo)}</p>` : ""}
     <p class="pnome-txt">${esc(p.nome || "Projeto sem nome")}</p>
     <div class="prog"><i style="width:${pc}%"></i></div><p class="note">${pf} de ${pts.length} ações feitas</p>
-    ${p.tarefas.map((t, k) => t.texto.trim() ? `<label class="chk ${t.feita ? "feita" : ""}"><input type="checkbox" data-act="feita" data-pi="${i}" data-k="${k}" ${t.feita ? "checked" : ""}><span>${esc(t.texto)}</span></label>` : "").join("")}
+    ${p.tarefas.map((t, k) => t.texto.trim() ? `<label class="chk ${t.feita ? "feita" : ""}"><input type="checkbox" data-act="feita" data-lista="${nomeLista}" data-pi="${i}" data-k="${k}" ${t.feita ? "checked" : ""}><span>${esc(t.texto)}</span></label>` : "").join("")}
   </div>`;
 }
 function painelRevisao() {
@@ -469,6 +479,7 @@ function painelRevisao() {
   </div>
   ${blocos}
   ${soltos.length ? `<div class="pobjetivo"><div class="pobj-topo"><h4>Outros projetos</h4></div><div class="pcards">${soltos.map(x => projetoCard(x.p, x.i, true)).join("")}</div></div>` : ""}
+  ${extras().some(p => p.nome.trim() || p.tarefas.some(t => t.texto.trim())) ? `<div class="pobjetivo"><div class="pobj-topo"><h4>Inbox e Lista Avulsa</h4></div><div class="pcards">${extras().map((p, i) => (p.nome.trim() || p.tarefas.some(t => t.texto.trim())) ? projetoCard({ ...p, objetivo: p.tipo }, i, true, "extras") : "").join("")}</div></div>` : ""}
   ${!objs.length && !ps.length ? `<p class="note">Os objetivos do dia 6 e os projetos do dia 7 aparecem aqui.</p>` : ""}
   <div class="pobjetivo"><div class="pobj-topo"><h4>Os hábitos</h4></div>
   ${habs.length ? S.d9.lembretes.map((l, i) => l.texto.trim() ? `<div class="hab"><span>${esc(l.texto)}</span><span class="dias">${l.dias.map((on, k) => `<span class="dia"><button class="circ${on ? " on" : ""}" data-act="circ" data-i="${i}" data-k="${k}" aria-pressed="${on}" aria-label="${DIAS_SEMANA[k]}"></button><small>${INICIAIS[k]}</small></span>`).join("")}</span></div>` : "").join("") : `<p class="note">Os hábitos do dia 9 aparecem aqui.</p>`}</div>
@@ -601,7 +612,7 @@ document.addEventListener("change", e => {
   if (t.dataset && t.dataset.obra === "ideia") { const p = $("#ideia-dia"); if (p) { p.textContent = ideiaDia(cur); p.hidden = !ideiaDia(cur); } return; }
   if (t.dataset && t.dataset.act === "d0") { S.d0.feito[+t.dataset.k] = t.checked; mudou(); t.closest(".chk").classList.toggle("feita", t.checked); return; }
   if (t.dataset && t.dataset.act === "feita") {
-    const tk = projetos()[+t.dataset.pi]?.tarefas[+t.dataset.k];
+    const tk = listaProj(t.dataset.lista)[+t.dataset.pi]?.tarefas[+t.dataset.k];
     if (tk) { tk.feita = t.checked; mudou(); renderSheet(); if (t.checked) toast("Ação feita"); }
   }
 });
@@ -621,9 +632,9 @@ document.addEventListener("click", async e => {
     case "gerar-projetos": gerarProjetos(b); return;
     case "add-proj": projetos().push(novoProjeto()); break;
     case "rm-proj": projetos().splice(i, 1); break;
-    case "limpar-proj": projetos()[i] = novoProjeto(); break;
-    case "add-tarefa": projetos()[+b.dataset.pi].tarefas.push(novaTarefa()); break;
-    case "rm-tarefa": projetos()[+b.dataset.pi].tarefas.splice(+b.dataset.k, 1); break;
+    case "limpar-proj": if (b.dataset.lista === "extras") extras()[i] = { ...novoProjeto(), tipo: EXTRAS[i] }; else projetos()[i] = novoProjeto(); break;
+    case "add-tarefa": listaProj(b.dataset.lista)[+b.dataset.pi].tarefas.push(novaTarefa()); break;
+    case "rm-tarefa": listaProj(b.dataset.lista)[+b.dataset.pi].tarefas.splice(+b.dataset.k, 1); break;
     case "add-lembrete": S.d9.lembretes.push(novoLembrete()); break;
     case "rm-lembrete": S.d9.lembretes.splice(i, 1); if (!S.d9.lembretes.length) S.d9.lembretes.push(novoLembrete()); break;
     case "circ": { const l = S.d9.lembretes[i]; l.dias[+b.dataset.k] = !l.dias[+b.dataset.k]; b.classList.toggle("on"); b.setAttribute("aria-pressed", l.dias[+b.dataset.k]); mudou(); return; }

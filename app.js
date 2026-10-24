@@ -181,10 +181,10 @@ function obraHTML(i) {
   if (!VER_OBRA()) return "";
   const o = OBRA[obraId(i)] || {};
   return `<div class="obra noprint"><h3>Construção do dia ${i}</h3><p class="quem">Só você vê esta parte. As participantes não veem. <span class="salvo" id="obra-salvo"></span></p>
-  <label class="lab"><span>Título do dia</span><input type="text" id="obra-titulo" data-obra="titulo" value="${esc(o.titulo ?? DIAS[i].t)}" placeholder="O título que aparece na aba e no alto da página"></label>
-  <label class="lab"><span>Texto de abertura</span><textarea id="obra-ideia" data-obra="ideia" style="min-height:90px" placeholder="O texto que aparece logo abaixo do título">${esc(o.ideia ?? DIAS[i].ideia)}</textarea></label>
-  <label class="lab"><span>Prévia do dia</span><textarea id="obra-previa" data-obra="previa" placeholder="Como vai ser este dia: o que ela faz, o que aparece na página e o que o Claude faz.">${esc(o.previa ?? PREVIAS_PADRAO[obraId(i)] ?? "")}</textarea></label>
-  <label class="lab"><span>Roteiro do vídeo</span><textarea id="obra-roteiro" data-obra="roteiro" placeholder="O roteiro do vídeo que vai junto com este dia.">${esc(o.roteiro || "")}</textarea></label>
+  <label class="lab"><span>Título do dia</span><input type="text" id="obra-titulo" data-obra="titulo" value="${esc(o.titulo ?? DIAS[i].t)}"></label>
+  <label class="lab"><span>Texto de abertura</span><textarea id="obra-ideia" data-obra="ideia" style="min-height:90px">${esc(o.ideia ?? DIAS[i].ideia)}</textarea></label>
+  <label class="lab"><span>Prévia do dia</span><textarea id="obra-previa" data-obra="previa">${esc(o.previa ?? PREVIAS_PADRAO[obraId(i)] ?? "")}</textarea></label>
+  <label class="lab"><span>Roteiro do vídeo</span><textarea id="obra-roteiro" data-obra="roteiro">${esc(o.roteiro || "")}</textarea></label>
   <button class="btn small" data-act="copiar-obra">Copiar a construção dos 10 dias</button></div>`;
 }
 

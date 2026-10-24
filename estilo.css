@@ -90,6 +90,12 @@ textarea:focus,input:focus,select:focus{outline:2px solid var(--accent);outline-
 .obra textarea{background:var(--paper);min-height:140px}
 .obra .lab>span{font-family:var(--display);font-weight:600;font-size:24px}
 .obra .salvo{font-family:var(--cond);font-size:20px;color:var(--muted)}
+.dica-mic{background:var(--accent-soft);border-radius:12px;padding:18px 20px;margin:4px 0 6px}
+.dica-mic h3{margin:0 0 6px;font-family:var(--display);font-weight:600;font-size:30px}
+.dica-mic p{margin:0 0 12px;max-width:66ch}
+.pergunta{margin:0 0 22px}
+.pergunta label{display:block;font-family:var(--display);font-weight:600;font-size:28px;line-height:1.15}
+.pergunta .note{margin:2px 0 8px}
 .vazio-dia{text-align:center;padding:30px 10px;color:var(--muted);font-family:var(--cond);font-size:22px}
 
 .card{border:1px solid var(--line);border-radius:12px;padding:16px;margin:14px 0;background:var(--paper)}

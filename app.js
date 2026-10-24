@@ -13,6 +13,21 @@ const novoId = () => "i" + Math.random().toString(36).slice(2, 10);
 
 /* ---------- conteúdo ---------- */
 const AREAS_PADRAO = ["Trabalho e carreira", "Dinheiro", "Saúde e corpo", "Mente e emoções", "Família", "Relacionamentos e amizades", "Lazer e diversão", "Estudos e crescimento"];
+const PERGUNTAS_D1 = [
+  { grupo: "Sobre você", itens: [
+    ["quem", "Quem é você?", "Conte como se estivesse se apresentando para alguém que você acabou de conhecer."],
+    ["rotina", "Como é a sua rotina?", "Como é um dia comum seu, do momento em que você acorda até a hora de dormir."],
+    ["crencas", "Em que você acredita?", "Os valores e as crenças que guiam as suas escolhas."],
+    ["gosta", "Do que você gosta e do que você não gosta?", "No dia a dia, nas pessoas, no trabalho e em você."],
+    ["objetivos", "O que você quer da vida?", "Os seus objetivos de vida, grandes e pequenos."]
+  ] },
+  { grupo: "A sua vida profissional", itens: [
+    ["faz", "O que você faz?", "O seu trabalho, o seu negócio ou os seus estudos."],
+    ["como", "Como você faz?", "Como o seu trabalho acontece na prática, quem está com você e quais ferramentas você usa."],
+    ["hoje", "Quais resultados você tem hoje?", "O que já está dando certo e onde você está agora."],
+    ["quer", "Quais resultados você pretende ter?", "Onde você quer chegar."]
+  ] }
+];
 const DIAS_SEMANA = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"];
 const INICIAIS = ["S", "T", "Q", "Q", "S", "S", "D"];
 const PERIODOS = ["Manhã", "Tarde", "Noite"];
@@ -21,7 +36,7 @@ const PONTOS_TAREFA = 10;
 
 // t vazio = dia em aberto
 const DIAS = [
-  { t: "Quem sou eu hoje", ideia: "Antes de planejar 2027, é preciso saber onde você está. Escreva como está cada área da sua vida hoje, do jeito que sair. Se uma área tem partes diferentes, crie uma parte para cada uma.", claude: "Leia o meu retrato de quem eu sou hoje e me faça 3 perguntas sobre o que ficou faltando." },
+  { t: "Primeiras coisas que você precisa fazer para usar a inteligência artificial", ideia: "", claude: "Organize numa ordem lógica tudo o que eu contei sobre mim e me diga o que ficou faltando para você me conhecer melhor." },
   { t: "A retrospectiva de 2026", ideia: "Olhar para 2026 com honestidade: o que deu certo, o que não deu, o que você aprendeu e do que você se orgulha.", claude: "A partir da minha retrospectiva de 2026, me ajude a enxergar os padrões que se repetem." },
   { t: "A roda da vida", ideia: "Marque de 0 a 10 como está cada uma das 8 áreas da sua vida hoje. A roda muda de cor conforme o nível de cada área.", claude: "Olhando as notas da minha roda da vida, quais áreas estão puxando as outras para baixo?" },
   { t: "", ideia: "", claude: "" },
@@ -44,7 +59,7 @@ const novoLembrete = () => ({ id: novoId(), texto: "", dias: [false, false, fals
 
 function estadoInicial() {
   return {
-    d1: { areas: AREAS_PADRAO.map(n => ({ id: novoId(), nome: n, texto: "", subs: [] })) },
+    d1: { areas: AREAS_PADRAO.map(n => ({ id: novoId(), nome: n, texto: "", subs: [] })), respostas: {} },
     d2: { certo: [""], errado: [""], aprendi: [""], orgulho: [""], palavra: "", desabafo: "" },
     d3: { notas: {} },
     d6: { objetivos: [novoObjetivo(), novoObjetivo(), novoObjetivo()] },
@@ -96,7 +111,7 @@ let obraDb = null;
 const obraTimers = {}, obraGravando = new Set(), obraSujos = new Set();
 
 const PREVIAS_PADRAO = {
-  d01: "Ela escreve como está cada uma das 8 áreas da vida hoje, do jeito que sair, e pode dividir cada área em partes. No fim, o Claude gera o resumo de quem ela é hoje.",
+  d01: "A página é uma série de perguntas, as mesmas do roteiro do vídeo, para ela preencher e também se inspirar para responder pelo microfone numa conversa com o Claude.",
   d02: "Ela olha para 2026: o que deu certo, o que não deu, o que aprendeu e do que se orgulha, a palavra que resume o ano e um desabafo livre.",
   d03: "A roda da vida com 8 áreas. Embaixo da roda, uma barra de 0 a 10 para cada área. A cor de cada área na roda muda conforme o nível que ela marca.",
   d06: "Ela estabelece de 3 a 5 objetivos claros para 2027, com a área, o prazo, como vai saber que conseguiu e por que isso importa.",
@@ -264,10 +279,9 @@ function resumoHTML(texto) {
 function textoDia(i) {
   const L = [`DIA ${i + 1}. ${tituloDia(i).toUpperCase()}`];
   const v = s => (s || "").trim() || "(em branco)";
-  if (i === 0) areas().forEach(a => {
-    if (!a.nome.trim()) return;
-    L.push(`\n${a.nome}: ${v(a.texto)}`);
-    a.subs.forEach(s => { if (s.nome.trim() || s.texto.trim()) L.push(`  ${s.nome || "Parte"}: ${v(s.texto)}`); });
+  if (i === 0) PERGUNTAS_D1.forEach(g => {
+    L.push(`\n${g.grupo.toUpperCase()}`);
+    g.itens.forEach(([k, q]) => L.push(`\n${q}\n${v(S.d1.respostas[k])}`));
   });
   if (i === 1) {
     [["certo", "O que deu certo em 2026"], ["errado", "O que não deu certo"], ["aprendi", "O que eu aprendi"], ["orgulho", "Do que eu me orgulho"]].forEach(([k, t]) => {
@@ -308,18 +322,22 @@ function textoDia(i) {
 const textoTudo = () => DIAS.map((d, i) => d.t ? textoDia(i) : "").filter(Boolean).join("\n\n");
 
 /* ---------- dias ---------- */
+function textoPerguntasD1() {
+  return `Vou me apresentar para você. Me faça estas perguntas, uma de cada vez, e espere a minha resposta antes de seguir. No fim, organize tudo o que eu contei numa ordem lógica.\n\n${PERGUNTAS_D1.map(g => `${g.grupo}:\n${g.itens.map(q => `- ${q[1]}`).join("\n")}`).join("\n\n")}`;
+}
 function dia1() {
-  return `<section class="sec"><h3>As áreas da sua vida</h3>
-  ${areas().map((a, i) => `<div class="card">
-    <div class="cardhead">${inp(`d1.areas.${i}.nome`, "Nome da área")}</div>
-    ${ta(`d1.areas.${i}.texto`, 3, "Como esta área está hoje?")}
-    ${a.subs.map((s, j) => `<div class="subcard"><div class="cardhead">${inp(`d1.areas.${i}.subs.${j}.nome`, "Nome da parte")}<button class="x" data-act="rm-sub" data-i="${i}" data-j="${j}" aria-label="Tirar a parte">×</button></div>${ta(`d1.areas.${i}.subs.${j}.texto`, 2, "Como esta parte está hoje?")}</div>`).join("")}
-    <button class="btn small addrow" data-act="add-sub" data-i="${i}">Acrescentar uma parte</button>
-  </div>`).join("")}</section>
-  <section class="sec"><h3>O resumo de quem você é hoje</h3>
-  <p class="note">Quando terminar de escrever, peça o resumo. Ele é feito pelo Claude a partir do que você escreveu e fica guardado aqui.</p>
+  return `<div class="dica-mic">
+    <h3>Responda falando</h3>
+    <p>A inteligência artificial trabalha a partir das informações que você dá a ela. Você pode escrever as respostas aqui ou abrir o Claude, tocar no microfone e responder em voz alta, sem ordem e sem caprichar. O Claude organiza tudo numa ordem lógica para você.</p>
+    <button class="btn" data-act="copiar-perguntas">Copiar as perguntas para o Claude</button>
+  </div>
+  ${PERGUNTAS_D1.map(g => `<section class="sec"><h3>${esc(g.grupo)}</h3>
+    ${g.itens.map(([k, q, dica]) => `<div class="pergunta"><label for="d1-${k}">${esc(q)}</label><p class="note">${esc(dica)}</p><textarea id="d1-${k}" data-p="d1.respostas.${k}" rows="4">${esc(S.d1.respostas[k] || "")}</textarea></div>`).join("")}
+  </section>`).join("")}
+  <section class="sec"><h3>O Claude organiza as suas respostas</h3>
+  <p class="note">Quando terminar, peça ao Claude para juntar tudo num retrato de quem você é hoje. Ele fica guardado aqui.</p>
   ${S.resumos.dia1 ? `<div class="resumo">${resumoHTML(S.resumos.dia1)}</div>` : ""}
-  <button class="btn primary" data-act="resumo" data-tipo="dia1">${S.resumos.dia1 ? "Gerar o resumo de novo" : "Gerar o resumo de quem eu sou hoje"}</button></section>`;
+  <button class="btn primary" data-act="resumo" data-tipo="dia1">${S.resumos.dia1 ? "Organizar de novo" : "Pedir ao Claude para organizar as minhas respostas"}</button></section>`;
 }
 function dia2() {
   return `<section class="sec"><h3>O que 2026 trouxe</h3>
@@ -540,6 +558,7 @@ document.addEventListener("click", async e => {
     case "circ": { const l = S.d9.lembretes[i]; l.dias[+b.dataset.k] = !l.dias[+b.dataset.k]; b.classList.toggle("on"); b.setAttribute("aria-pressed", l.dias[+b.dataset.k]); mudou(); return; }
     case "concluir": S.concluidos[+b.dataset.d] = !S.concluidos[+b.dataset.d]; mudou(); renderTrail(); renderSheet(); if (S.concluidos[+b.dataset.d]) toast("Dia concluído"); return;
     case "copiar-obra": copiar(textoObra()); return;
+    case "copiar-perguntas": copiar(textoPerguntasD1()); return;
     case "copiar": copiar(`${DIAS[+b.dataset.d].claude}\n\n${textoDia(+b.dataset.d)}`); return;
     case "resumo": gerarResumo(b.dataset.tipo, b); return;
     case "imprimir": window.print(); return;

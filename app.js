@@ -32,7 +32,9 @@ const DIAS = [
   { t: "Hábitos e semana ideal", ideia: "Desenhe a sua semana ideal de 2027 e anote os lembretes dos hábitos que sustentam os seus objetivos, marcando em quais dias cada um vale.", claude: "Monte comigo lembretes para os meus hábitos dentro da minha semana ideal." },
   { t: "O ritual de revisão", ideia: "Combine com você mesma quando e como vai revisar o plano, para ele continuar vivo depois de janeiro, e escolha o primeiro passo.", claude: "Transforme o meu ritual de revisão num roteiro que eu possa repetir toda semana." }
 ];
-const tituloDia = i => DIAS[i].t || "Dia em aberto";
+const obraVal = (i, k) => { const o = (typeof OBRA !== "undefined" && OBRA[obraId(i)]) || {}; return VER_OBRA() && typeof o[k] === "string" ? o[k] : null; };
+const tituloDia = i => (obraVal(i, "titulo") ?? DIAS[i].t).trim() || "Dia em aberto";
+const ideiaDia = i => (obraVal(i, "ideia") ?? DIAS[i].ideia).trim();
 
 /* ---------- estado ---------- */
 const novoObjetivo = () => ({ id: novoId(), titulo: "", area: "", sinal: "", porque: "", trimestre: "" });
@@ -104,8 +106,8 @@ const PREVIAS_PADRAO = {
   d10: "Ela combina o dia da revisão semanal e os passos das revisões semanal, mensal e trimestral, escolhe o primeiro passo de janeiro e abre O meu 2027, onde o Claude cruza tudo e faz a análise do ano."
 };
 let obraNuvem = false; // true quando a construção fica no Firestore da administradora
+function carregarObraLocal() { try { const raw = localStorage.getItem(LS_OBRA); if (raw) Object.assign(OBRA, JSON.parse(raw)); } catch (e) { } }
 async function iniciarObra() {
-  try { const raw = localStorage.getItem(LS_OBRA); if (raw) Object.assign(OBRA, JSON.parse(raw)); } catch (e) { }
   if (!DEMO && admin && fs && usuario) {
     obraNuvem = true;
     try {
@@ -113,7 +115,7 @@ async function iniciarObra() {
       const c = snap.exists() && snap.data().construcao;
       if (c) Object.assign(OBRA, JSON.parse(c));
     } catch (e) { console.error(e); }
-    renderSheet();
+    renderTrail(); renderSheet();
     return;
   }
   try { obraDb = window.claude && window.claude.use ? await window.claude.use("db") : null; } catch (e) { obraDb = null; }
@@ -124,7 +126,9 @@ async function iniciarObra() {
       OBRA[d.id] = { ...(d.data() || {}) };
       if (cur < 10 && obraId(cur) === d.id) {
         const foco = document.activeElement;
-        ["previa", "roteiro"].forEach(k => { const t = document.getElementById(`obra-${k}`); if (t && t !== foco && t.value !== (OBRA[d.id][k] || "")) t.value = OBRA[d.id][k] || ""; });
+        ["titulo", "ideia", "previa", "roteiro"].forEach(k => { const t = document.getElementById(`obra-${k}`); if (t && t !== foco && typeof OBRA[d.id][k] === "string" && t.value !== OBRA[d.id][k]) t.value = OBRA[d.id][k]; });
+        const h = $("#sheet h2.day"); if (h) h.textContent = tituloDia(cur);
+        const pi = $("#ideia-dia"); if (pi) { pi.textContent = ideiaDia(cur); pi.hidden = !ideiaDia(cur); }
       }
     });
     renderTrail();
@@ -151,12 +155,14 @@ async function gravarObra(id) {
   obraGravando.delete(id);
 }
 function textoObra() {
-  return DIAS.map((_, i) => { const o = OBRA[obraId(i)] || {}; return `DIA ${i + 1}. ${tituloDia(i).toUpperCase()}\nPrévia do dia: ${(o.previa ?? PREVIAS_PADRAO[obraId(i)] ?? "").trim() || "(em branco)"}\nRoteiro do vídeo: ${(o.roteiro || "").trim() || "(em branco)"}`; }).join("\n\n");
+  return DIAS.map((_, i) => { const o = OBRA[obraId(i)] || {}; return `DIA ${i + 1}. ${tituloDia(i).toUpperCase()}\nTexto de abertura: ${ideiaDia(i) || "(em branco)"}\nPrévia do dia: ${(o.previa ?? PREVIAS_PADRAO[obraId(i)] ?? "").trim() || "(em branco)"}\nRoteiro do vídeo: ${(o.roteiro || "").trim() || "(em branco)"}`; }).join("\n\n");
 }
 function obraHTML(i) {
   if (!VER_OBRA()) return "";
   const o = OBRA[obraId(i)] || {};
   return `<div class="obra noprint"><h3>Construção do dia ${i + 1}</h3><p class="quem">Só você vê esta parte. As participantes não veem. <span class="salvo" id="obra-salvo"></span></p>
+  <label class="lab"><span>Título do dia</span><input type="text" id="obra-titulo" data-obra="titulo" value="${esc(o.titulo ?? DIAS[i].t)}" placeholder="O título que aparece na aba e no alto da página"></label>
+  <label class="lab"><span>Texto de abertura</span><textarea id="obra-ideia" data-obra="ideia" style="min-height:90px" placeholder="O texto que aparece logo abaixo do título">${esc(o.ideia ?? DIAS[i].ideia)}</textarea></label>
   <label class="lab"><span>Prévia do dia</span><textarea id="obra-previa" data-obra="previa" placeholder="Como vai ser este dia: o que ela faz, o que aparece na página e o que o Claude faz.">${esc(o.previa ?? PREVIAS_PADRAO[obraId(i)] ?? "")}</textarea></label>
   <label class="lab"><span>Roteiro do vídeo</span><textarea id="obra-roteiro" data-obra="roteiro" placeholder="O roteiro do vídeo que vai junto com este dia.">${esc(o.roteiro || "")}</textarea></label>
   <button class="btn small" data-act="copiar-obra">Copiar a construção dos 10 dias</button></div>`;
@@ -452,7 +458,7 @@ function renderSheet() {
   if (cur === 10) { sh.innerHTML = aberto(9) ? finalView() : bloqueado(9, "O meu 2027"); return; }
   const d = DIAS[cur];
   if (!aberto(cur)) { sh.innerHTML = bloqueado(cur, tituloDia(cur)); return; }
-  sh.innerHTML = `<div class="eyebrow">Dia ${cur + 1}${DEMO ? "" : ` · ${esc(fmtData(abertura(cur)))}`}</div><h2 class="day">${esc(tituloDia(cur))}</h2>${d.ideia ? `<p class="ideia">${esc(d.ideia)}</p>` : ""}
+  sh.innerHTML = `<div class="eyebrow">Dia ${cur + 1}${DEMO ? "" : ` · ${esc(fmtData(abertura(cur)))}`}</div><h2 class="day">${esc(tituloDia(cur))}</h2><p class="ideia" id="ideia-dia" ${ideiaDia(cur) ? "" : "hidden"}>${esc(ideiaDia(cur))}</p>
   ${obraHTML(cur)}
   ${RENDER[cur]()}
   ${d.claude ? `<div class="claude"><h3>Leve para o Claude</h3><p>${esc(d.claude)}</p><p class="note">O botão copia a mensagem junto com as suas respostas deste dia. Cole no seu projeto do Claude.</p>
@@ -485,7 +491,12 @@ function ir(i) {
 /* ---------- eventos ---------- */
 document.addEventListener("input", e => {
   const t = e.target;
-  if (t.dataset.obra && cur < 10) { const id = obraId(cur); OBRA[id] = { ...(OBRA[id] || {}), [t.dataset.obra]: t.value }; mudouObra(id); return; }
+  if (t.dataset.obra && cur < 10) {
+    const id = obraId(cur); OBRA[id] = { ...(OBRA[id] || {}), [t.dataset.obra]: t.value }; mudouObra(id);
+    if (t.dataset.obra === "titulo") { const h = $("#sheet h2.day"); if (h) h.textContent = tituloDia(cur); renderTrail(); }
+    if (t.dataset.obra === "ideia") { const p = $("#ideia-dia"); if (p) { p.textContent = ideiaDia(cur); p.hidden = !ideiaDia(cur); } }
+    return;
+  }
   if (t.dataset.nota) {
     const id = t.dataset.nota, v = Number(t.value);
     S.d3.notas[id] = v; mudou();
@@ -613,6 +624,7 @@ function telaLogin(erro) {
   };
 }
 async function iniciar() {
+  carregarObraLocal();
   if (DEMO) {
     try { const raw = localStorage.getItem(LS_KEY); if (raw) S = mesclar(JSON.parse(raw)); } catch (e) { }
     cur = diaInicial(); renderApp(); iniciarObra(); return;

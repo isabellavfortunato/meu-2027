@@ -46,7 +46,7 @@ const DIAS = [
   { t: "Dos objetivos aos projetos", ideia: "Os seus objetivos viram projetos, e cada projeto é quebrado em ações pequenas para você ir marcando ao longo do ano.", claude: "Pegue um dos meus projetos e me ajude a montar o primeiro passo de cada ação." },
   { t: "A semana ideal", ideia: "Desenhe a sua semana ideal de 2027, de segunda a domingo, com manhã, tarde e noite.", claude: "Monte comigo a minha semana ideal a partir dos meus projetos e da minha rotina." },
   { t: "Os hábitos", ideia: "Anote os lembretes dos hábitos que sustentam os seus objetivos e marque em quais dias da semana cada um vale.", claude: "Monte comigo lembretes para os meus hábitos dentro da minha semana ideal." },
-  { t: "O ritual de revisão", ideia: "Combine com você mesma quando e como vai revisar o plano, para ele continuar vivo depois de janeiro, e escolha o primeiro passo.", claude: "Transforme o meu ritual de revisão num roteiro que eu possa repetir toda semana." }
+  { t: "O painel de 2027", ideia: "Veja num único painel os objetivos, os projetos, as ações e os hábitos que você construiu nos 10 dias.", claude: "" }
 ];
 const obraVal = (i, k) => { const o = (typeof OBRA !== "undefined" && OBRA[obraId(i)]) || {}; return VER_OBRA() && typeof o[k] === "string" ? o[k] : null; };
 const FINAL = () => DIAS.length; // a página O meu 2027
@@ -123,7 +123,7 @@ const PREVIAS_PADRAO = {
   d07: "O Claude, dentro da ferramenta, transforma os objetivos em projetos. Cada projeto é um card com o objetivo em cima, o nome do projeto embaixo e as ações para marcar. São 8 cards em 2 colunas, um embaixo do outro, e cada card começa com 3 ações e tem o botão para acrescentar mais.",
   d08: "A semana ideal em forma de calendário, de segunda a domingo, com manhã, tarde e noite.",
   d09: "Os lembretes dos hábitos, cada um com 7 círculos para marcar os dias da semana em que ele vale.",
-  d10: "Ela combina o dia da revisão semanal e os passos das revisões semanal, mensal e trimestral, escolhe o primeiro passo de janeiro e abre O meu 2027, onde o Claude cruza tudo e faz a análise do ano."
+  d10: "Ela vê num único painel os objetivos, os projetos, as ações e os hábitos e abre O meu 2027, onde o Claude cruza tudo e faz a análise do ano."
 };
 let obraNuvem = false; // true quando a construção fica no Firestore da administradora
 function carregarObraLocal() { try { const raw = localStorage.getItem(LS_OBRA); if (raw) Object.assign(OBRA, JSON.parse(raw)); } catch (e) { } }
@@ -326,9 +326,13 @@ function textoDia(i) {
     S.d9.lembretes.filter(l => l.texto.trim()).forEach(l => L.push(`- ${l.texto} (${DIAS_SEMANA.filter((_, k) => l.dias[k]).join(", ") || "sem dias marcados"})`));
   }
   if (i === 10) {
-    L.push(`Dia da revisão semanal: ${S.d10.diaRevisao}`);
-    [["semanal", "Revisão semanal"], ["mensal", "Revisão mensal"], ["trimestral", "Revisão trimestral"]].forEach(([k, t]) => L.push(`\n${t}:\n${S.d10[k].filter(x => x.trim()).map(x => `- ${x}`).join("\n")}`));
-    L.push(`\nPrimeiro passo de janeiro: ${v(S.d10.primeiroPasso)}${S.d10.dataPasso ? ` (${S.d10.dataPasso.split("-").reverse().join("/")})` : ""}`);
+    S.d6.objetivos.filter(o => o.titulo.trim()).forEach(o => L.push(`Objetivo: ${o.titulo}`));
+    [...S.d7.projetos, ...(S.d7.extras || [])].filter(p => p.nome.trim()).forEach(p => {
+      const ts = p.tarefas.filter(t => t.texto.trim());
+      L.push(`\nProjeto: ${p.nome}${p.objetivo ? ` (objetivo: ${p.objetivo})` : ""}\n${ts.map(t => `- [${t.feita ? "x" : " "}] ${t.texto}`).join("\n")}`);
+    });
+    const hs = S.d9.lembretes.filter(l => l.texto.trim());
+    if (hs.length) L.push(`\nHábitos:\n${hs.map(l => `- ${l.texto}`).join("\n")}`);
   }
   return L.join("\n");
 }
@@ -486,15 +490,7 @@ function painelRevisao() {
   </section>`;
 }
 function dia10() {
-  return `${painelRevisao()}<section class="sec"><h3>Quando você revisa</h3>
-  <label class="lab"><span>O dia da revisão semanal</span>${sel("d10.diaRevisao", DIAS_SEMANA)}</label>
-  <div class="sub">Revisão semanal</div>${lista("d10.semanal", "Um passo da revisão")}
-  <div class="sub">Revisão mensal</div>${lista("d10.mensal", "Um passo da revisão")}
-  <div class="sub">Revisão trimestral</div>${lista("d10.trimestral", "Um passo da revisão")}</section>
-  <section class="sec"><h3>O primeiro passo de janeiro</h3>
-  <label class="lab"><span>O que você vai fazer primeiro</span>${ta("d10.primeiroPasso", 2)}</label>
-  <label class="lab"><span>Quando</span><input type="date" data-p="d10.dataPasso" value="${esc(S.d10.dataPasso)}" min="2027-01-01" max="2027-01-31"></label></section>
-  <section class="sec"><h3>O seu plano completo</h3><p class="note">Agora a ferramenta cruza tudo o que você escreveu nos 10 dias.</p>
+  return `${painelRevisao()}<section class="sec"><h3>O seu plano completo</h3><p class="note">Agora a ferramenta cruza tudo o que você escreveu nos 10 dias.</p>
   <button class="btn primary" data-act="ir" data-d="${FINAL()}">Ver o meu 2027</button></section>`;
 }
 const RENDER = [dia0, dia1, dia2, dia3, diaAberto, diaAberto, dia6, dia7, dia8, dia9, dia10];
@@ -522,8 +518,6 @@ function finalView() {
     return `<div class="projeto"><b style="font-family:var(--display);font-size:24px">${esc(p.nome)}</b><ul>${ts.map(t => `<li>${esc(t.texto)}</li>`).join("")}</ul></div>`;
   }).join("")}</div></section>` : ""}
   ${S.d9.lembretes.some(l => l.texto.trim()) ? `<section class="sec"><h3>Os lembretes</h3><ul>${S.d9.lembretes.filter(l => l.texto.trim()).map(l => `<li>${esc(l.texto)}: ${esc(DIAS_SEMANA.filter((_, k) => l.dias[k]).join(", ").toLowerCase() || "sem dias marcados")}</li>`).join("")}</ul></section>` : ""}
-  <section class="sec"><h3>O ritual de revisão</h3><p>Revisão semanal: ${esc(S.d10.diaRevisao.toLowerCase())}.</p>
-  ${S.d10.primeiroPasso.trim() ? `<p><b>O primeiro passo de janeiro:</b> ${esc(S.d10.primeiroPasso)}${S.d10.dataPasso ? `, em ${esc(S.d10.dataPasso.split("-").reverse().join("/"))}` : ""}.</p>` : ""}</section>
   <div class="foot noprint"><button class="btn" data-act="ir" data-d="${ULT()}">Voltar para o dia ${ULT()}</button>${dentroDoClaude ? "" : `<button class="btn" data-act="imprimir">Salvar em PDF</button>`}</div>`;
 }
 

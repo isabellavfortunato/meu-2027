@@ -51,7 +51,7 @@ const DIAS = [
 const obraVal = (i, k) => { const o = (typeof OBRA !== "undefined" && OBRA[obraId(i)]) || {}; return VER_OBRA() && typeof o[k] === "string" ? o[k] : null; };
 const FINAL = () => DIAS.length; // a página O meu 2027
 const ULT = () => DIAS.length - 1; // o último dia
-const tituloDia = i => (obraVal(i, "titulo") ?? DIAS[i].t).trim() || "Dia em aberto";
+const tituloDia = i => { const pb = PUB[obraId(i)]; return ((pb && typeof pb.titulo === "string" ? pb.titulo : null) ?? obraVal(i, "titulo") ?? DIAS[i].t).trim() || "Dia em aberto"; };
 const ideiaDia = i => (obraVal(i, "ideia") ?? DIAS[i].ideia).trim();
 
 /* ---------- estado ---------- */
@@ -108,7 +108,38 @@ function setPath(path, v) {
 }
 
 /* ---------- espaço de construção (prévia do dia e roteiro do vídeo) ---------- */
-const OBRA = {}; // { d01: {previa, roteiro} }
+const OBRA = {}; // { d01: {previa, roteiro} } textos antigos de construção, só da administradora
+// conteúdo que as participantes veem: { d01: {titulo, video} }, guardado em conteudo/dias
+const PUB = {};
+const LS_PUB = "meu2027-publico-v1";
+let pubTimer = null;
+function carregarPubLocal() { try { const raw = localStorage.getItem(LS_PUB); if (raw) Object.assign(PUB, JSON.parse(raw)); } catch (e) { } }
+async function carregarPub() {
+  if (DEMO || !fs) return;
+  try { const snap = await fs.getDoc(fs.doc(db, "conteudo", "dias")); const c = snap.exists() && snap.data().dados; if (c) Object.assign(PUB, JSON.parse(c)); }
+  catch (e) { console.warn("conteúdo dos dias indisponível", e && e.code); }
+}
+function mudouPub() {
+  try { localStorage.setItem(LS_PUB, JSON.stringify(PUB)); } catch (e) { }
+  if (DEMO || !fs) return;
+  clearTimeout(pubTimer); pubTimer = setTimeout(gravarPub, 900);
+}
+async function gravarPub() {
+  const s = () => $("#obra-salvo");
+  try { await fs.setDoc(fs.doc(db, "conteudo", "dias"), { dados: JSON.stringify(PUB) }); if (s()) s().textContent = "Salvo para as participantes"; }
+  catch (e) { console.error(e); if (s()) s().textContent = e && e.code === "permission-denied" ? "Salvo só para você. Falta publicar as regras novas no Firebase para as participantes verem." : "Não consegui salvar, tentando de novo"; if (!(e && e.code === "permission-denied")) pubTimer = setTimeout(gravarPub, 4000); }
+}
+function ytId(url) {
+  const u = String(url || "").trim(); if (!u) return "";
+  if (/^[\w-]{11}$/.test(u)) return u;
+  const m = u.match(/(?:youtu\.be\/|[?&]v=|\/embed\/|\/shorts\/|\/live\/)([\w-]{11})/);
+  return m ? m[1] : "";
+}
+function videoHTML(i) {
+  const id = ytId((PUB[obraId(i)] || {}).video);
+  if (id) return `<div class="video"><iframe src="https://www.youtube-nocookie.com/embed/${id}?rel=0&modestbranding=1" title="Vídeo do dia ${i}" allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; fullscreen" allowfullscreen loading="lazy"></iframe></div>`;
+  return `<div class="video vazio"><p>${VER_OBRA() ? "Cole o link do vídeo do YouTube na caixa de construção para ele aparecer aqui." : "O vídeo deste dia vai aparecer aqui."}</p></div>`;
+}
 const obraId = i => "d" + String(i).padStart(2, "0");
 const VER_OBRA = () => DEMO || admin;
 let obraDb = null;
@@ -135,6 +166,9 @@ async function iniciarObra() {
       const c = snap.exists() && snap.data().construcao;
       if (c) { const nuvem = JSON.parse(c); Object.keys(nuvem).forEach(k => { if (!obraSujos.has(k)) OBRA[k] = nuvem[k]; }); }
     } catch (e) { console.error(e); }
+    let migrou = false;
+    Object.keys(OBRA).forEach(k => ["titulo", "video"].forEach(c => { const v = OBRA[k] && OBRA[k][c]; if (typeof v === "string" && !(PUB[k] && typeof PUB[k][c] === "string")) { PUB[k] = { ...(PUB[k] || {}), [c]: v }; migrou = true; } }));
+    if (migrou) mudouPub();
     renderTrail(); renderSheet();
     return;
   }
@@ -179,13 +213,11 @@ function textoObra() {
 }
 function obraHTML(i) {
   if (!VER_OBRA()) return "";
-  const o = OBRA[obraId(i)] || {};
-  return `<div class="obra noprint"><h3>Construção do dia ${i}</h3><p class="quem">Só você vê esta parte. As participantes não veem. <span class="salvo" id="obra-salvo"></span></p>
-  <label class="lab"><span>Título do dia</span><input type="text" id="obra-titulo" data-obra="titulo" value="${esc(o.titulo ?? DIAS[i].t)}"></label>
-  <label class="lab"><span>Texto de abertura</span><textarea id="obra-ideia" data-obra="ideia">${esc(o.ideia ?? DIAS[i].ideia)}</textarea></label>
-  <label class="lab"><span>Prévia do dia</span><textarea id="obra-previa" data-obra="previa">${esc(o.previa ?? PREVIAS_PADRAO[obraId(i)] ?? "")}</textarea></label>
-  <label class="lab"><span>Roteiro do vídeo</span><textarea id="obra-roteiro" data-obra="roteiro">${esc(o.roteiro || "")}</textarea></label>
-  <button class="btn small" data-act="copiar-obra">Copiar a construção dos 10 dias</button></div>`;
+  const pb = PUB[obraId(i)] || {}, o = OBRA[obraId(i)] || {};
+  return `<div class="obra noprint"><h3>Construção do dia ${i}</h3><p class="quem">Só você vê esta caixa. As participantes veem o título e o vídeo. <span class="salvo" id="obra-salvo"></span></p>
+  <label class="lab"><span>Título do dia</span><input type="text" id="obra-titulo" data-obra="titulo" value="${esc(pb.titulo ?? o.titulo ?? DIAS[i].t)}"></label>
+  <label class="lab"><span>Link do vídeo do YouTube</span><input type="text" id="obra-video" data-obra="video" inputmode="url" placeholder="https://youtu.be/..." value="${esc(pb.video ?? "")}"></label>
+  <button class="btn small" data-act="copiar-obra">Copiar os textos antigos de construção</button></div>`;
 }
 
 /* ---------- datas ---------- */
@@ -549,8 +581,9 @@ function desenharFolha() {
   if (cur === FINAL()) { sh.innerHTML = aberto(ULT()) ? finalView() : bloqueado(ULT(), "O meu 2027"); return; }
   const d = DIAS[cur];
   if (!aberto(cur)) { sh.innerHTML = bloqueado(cur, tituloDia(cur)); return; }
-  sh.innerHTML = `<div class="eyebrow">Dia ${cur}${DEMO || cur === 0 ? "" : ` · ${esc(fmtData(abertura(cur)))}`}</div><h2 class="day">${esc(tituloDia(cur))}</h2><p class="ideia" id="ideia-dia" ${ideiaDia(cur) ? "" : "hidden"}>${esc(ideiaDia(cur))}</p>
+  sh.innerHTML = `<div class="eyebrow">Dia ${cur}${DEMO || cur === 0 ? "" : ` · ${esc(fmtData(abertura(cur)))}`}</div><h2 class="day">${esc(tituloDia(cur))}</h2>
   ${obraHTML(cur)}
+  <div id="video-dia">${videoHTML(cur)}</div>
   ${RENDER[cur]()}
   ${d.claude ? `<div class="claude"><h3>Leve para o Claude</h3><p>${esc(d.claude)}</p><p class="note">O botão copia a mensagem junto com as suas respostas deste dia. Cole no seu projeto do Claude.</p>
   <button class="btn" data-act="copiar" data-d="${cur}">Copiar para o Claude</button></div>` : ""}
@@ -563,7 +596,7 @@ function bloqueado(i, titulo) {
 }
 function renderApp() {
   $("#app").innerHTML = `<div class="wrap">
-  <header class="top"><div class="brand"><small>10 dias com o Claude</small><h1>Meu 2027</h1></div>
+  <header class="top"><div class="brand"><h1>Meu 2027</h1><p class="sub-marca">Planejamento com o Claude</p></div>
   <div class="topright"><div class="overall"><div class="bar"><i id="ovbar"></i></div><b id="ovpct"></b></div><span class="status" id="status">${DEMO ? "Prévia" : "Salvo"}</span>
   ${usuario ? `<button class="linkbtn" data-act="sair">Sair</button>` : ""}</div></header>
   ${DEMO ? `<p class="aviso">Você está vendo a prévia. Todos os dias estão abertos e o resumo automático não funciona.</p>` : ""}
@@ -584,6 +617,7 @@ document.addEventListener("input", e => {
   const t = e.target;
   if (t.dataset.obra && cur < FINAL()) {
     const id = obraId(cur); OBRA[id] = { ...(OBRA[id] || {}), [t.dataset.obra]: t.value }; mudouObra(id);
+    if (t.dataset.obra === "titulo" || t.dataset.obra === "video") { PUB[id] = { ...(PUB[id] || {}), [t.dataset.obra]: t.value }; mudouPub(); }
     return;
   }
   if (t.dataset.nota) {
@@ -603,7 +637,7 @@ document.addEventListener("change", e => {
   const t = e.target;
   // título e abertura só atualizam a página quando a pessoa sai do campo, para nada se mexer enquanto ela dita
   if (t.dataset && t.dataset.obra === "titulo") { const h = $("#sheet h2.day"); if (h) h.textContent = tituloDia(cur); renderTrail(); return; }
-  if (t.dataset && t.dataset.obra === "ideia") { const p = $("#ideia-dia"); if (p) { p.textContent = ideiaDia(cur); p.hidden = !ideiaDia(cur); } return; }
+  if (t.dataset && t.dataset.obra === "video") { const v = $("#video-dia"); if (v) v.innerHTML = videoHTML(cur); return; }
   if (t.dataset && t.dataset.act === "d0") { S.d0.feito[+t.dataset.k] = t.checked; mudou(); t.closest(".chk").classList.toggle("feita", t.checked); return; }
   if (t.dataset && t.dataset.act === "feita") {
     const tk = listaProj(t.dataset.lista)[+t.dataset.pi]?.tarefas[+t.dataset.k];
@@ -705,7 +739,7 @@ function diaInicial() {
   return ult;
 }
 function telaLogin(erro) {
-  $("#app").innerHTML = `<div class="wrap"><div class="login"><h1>Meu 2027</h1>
+  $("#app").innerHTML = `<div class="wrap"><div class="login"><h1>Meu 2027</h1><p class="sub-marca">Planejamento com o Claude</p>
   <p>10 dias com o Claude para fechar 2026 e planejar 2027. Entre com a sua conta Google para começar. As suas respostas ficam guardadas e só você vê.</p>
   <button class="btn primary" id="entrar">Entrar com o Google</button>
   ${erro ? `<p class="note">${esc(erro)}</p>` : ""}</div></div>`;
@@ -721,6 +755,7 @@ function telaLogin(erro) {
 async function iniciar() {
   carregarObraLocal();
   if (DEMO) {
+    carregarPubLocal();
     try { const raw = localStorage.getItem(LS_KEY); if (raw) S = mesclar(JSON.parse(raw)); } catch (e) { }
     cur = diaInicial(); renderApp(); iniciarObra(); return;
   }
@@ -738,6 +773,7 @@ async function iniciar() {
       const snap = await fs.getDoc(fs.doc(db, "participantes", u.uid));
       if (snap.exists() && snap.data().dados) S = mesclar(JSON.parse(snap.data().dados));
     } catch (e) { console.error(e); toast("Não consegui carregar as suas respostas. Recarregue a página."); }
+    await carregarPub();
     cur = diaInicial(); renderApp(); if (admin) iniciarObra();
   });
 }

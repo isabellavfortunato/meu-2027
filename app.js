@@ -436,8 +436,46 @@ function dia9() {
   <button class="btn small addrow" data-act="add-lembrete">Acrescentar um lembrete</button>
   <p class="note">Marque os dias da semana em que cada lembrete vale.</p></section>`;
 }
+function projetoCard(p, i, comObjetivo) {
+  const pts = p.tarefas.filter(t => t.texto.trim()), pf = pts.filter(t => t.feita).length, pc = pts.length ? Math.round((pf * 100) / pts.length) : 0;
+  return `<div class="pcard">${comObjetivo && p.objetivo ? `<p class="pobj-txt">${esc(p.objetivo)}</p>` : ""}
+    <p class="pnome-txt">${esc(p.nome || "Projeto sem nome")}</p>
+    <div class="prog"><i style="width:${pc}%"></i></div><p class="note">${pf} de ${pts.length} ações feitas</p>
+    ${p.tarefas.map((t, k) => t.texto.trim() ? `<label class="chk ${t.feita ? "feita" : ""}"><input type="checkbox" data-act="feita" data-pi="${i}" data-k="${k}" ${t.feita ? "checked" : ""}><span>${esc(t.texto)}</span></label>` : "").join("")}
+  </div>`;
+}
+function painelRevisao() {
+  const norm = t => (t || "").trim().toLowerCase();
+  const objs = S.d6.objetivos.filter(o => o.titulo.trim());
+  const ps = projetos().map((p, i) => ({ p, i })).filter(x => x.p.nome.trim() || x.p.tarefas.some(t => t.texto.trim()));
+  const usados = new Set();
+  const ts = todasTarefas(), feitas = ts.filter(t => t.feita).length;
+  const habs = S.d9.lembretes.filter(l => l.texto.trim());
+  const blocos = objs.map(o => {
+    const meus = ps.filter(x => norm(x.p.objetivo) && norm(x.p.objetivo) === norm(o.titulo));
+    meus.forEach(x => usados.add(x.i));
+    return `<div class="pobjetivo"><div class="pobj-topo"><h4>${esc(o.titulo)}</h4>
+      ${o.area ? `<span class="tag">${esc(areaNome(o.area))}</span>` : ""}${o.trimestre ? `<span class="tag">${esc(o.trimestre)}º trimestre</span>` : ""}</div>
+      ${o.sinal.trim() ? `<p class="note">Como vou saber que consegui: ${esc(o.sinal)}</p>` : ""}
+      <div class="pcards">${meus.map(x => projetoCard(x.p, x.i, false)).join("") || `<p class="note">Nenhum projeto ligado a este objetivo no dia 7.</p>`}</div></div>`;
+  }).join("");
+  const soltos = ps.filter(x => !usados.has(x.i));
+  return `<section class="sec painel-rev"><h3>O seu painel</h3>
+  <div class="cards">
+    <div class="kpi"><small>Objetivos</small><b>${objs.length}</b></div>
+    <div class="kpi"><small>Projetos</small><b>${ps.length}</b></div>
+    <div class="kpi"><small>Ações feitas</small><b>${feitas}</b><span> de ${ts.length}</span></div>
+    <div class="kpi"><small>Hábitos</small><b>${habs.length}</b></div>
+  </div>
+  ${blocos}
+  ${soltos.length ? `<div class="pobjetivo"><div class="pobj-topo"><h4>Outros projetos</h4></div><div class="pcards">${soltos.map(x => projetoCard(x.p, x.i, true)).join("")}</div></div>` : ""}
+  ${!objs.length && !ps.length ? `<p class="note">Os objetivos do dia 6 e os projetos do dia 7 aparecem aqui.</p>` : ""}
+  <div class="pobjetivo"><div class="pobj-topo"><h4>Os hábitos</h4></div>
+  ${habs.length ? S.d9.lembretes.map((l, i) => l.texto.trim() ? `<div class="hab"><span>${esc(l.texto)}</span><span class="dias">${l.dias.map((on, k) => `<span class="dia"><button class="circ${on ? " on" : ""}" data-act="circ" data-i="${i}" data-k="${k}" aria-pressed="${on}" aria-label="${DIAS_SEMANA[k]}"></button><small>${INICIAIS[k]}</small></span>`).join("")}</span></div>` : "").join("") : `<p class="note">Os hábitos do dia 9 aparecem aqui.</p>`}</div>
+  </section>`;
+}
 function dia10() {
-  return `<section class="sec"><h3>Quando você revisa</h3>
+  return `${painelRevisao()}<section class="sec"><h3>Quando você revisa</h3>
   <label class="lab"><span>O dia da revisão semanal</span>${sel("d10.diaRevisao", DIAS_SEMANA)}</label>
   <div class="sub">Revisão semanal</div>${lista("d10.semanal", "Um passo da revisão")}
   <div class="sub">Revisão mensal</div>${lista("d10.mensal", "Um passo da revisão")}

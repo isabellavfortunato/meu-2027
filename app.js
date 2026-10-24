@@ -39,7 +39,7 @@ const DIAS = [
   { t: "Antes de começar", ideia: "Deixe a ferramenta pronta no seu celular: entre com a sua conta Google e coloque a ferramenta na tela de início, para usar como um aplicativo e aproveitar o microfone.", claude: "" },
   { t: "Primeiras coisas que você precisa fazer para usar a inteligência artificial", ideia: "", claude: "Organize numa ordem lógica tudo o que eu contei sobre mim e me diga o que ficou faltando para você me conhecer melhor." },
   { t: "A retrospectiva de 2026", ideia: "Olhar para 2026 com honestidade: o que deu certo, o que não deu, o que você aprendeu e do que você se orgulha.", claude: "A partir da minha retrospectiva de 2026, me ajude a enxergar os padrões que se repetem." },
-  { t: "A roda da vida", ideia: "Marque de 0 a 10 como está cada uma das 8 áreas da sua vida hoje. A roda muda de cor conforme o nível de cada área.", claude: "Olhando as notas da minha roda da vida, quais áreas estão puxando as outras para baixo?" },
+  { t: "A roda da vida", ideia: "Marque de 0 a 10 como está cada uma das 8 áreas da sua vida hoje. A roda muda de cor conforme o nível de cada área.", claude: "Olhando as notas da minha roda da vida, indique as 3 áreas que estão puxando as outras para baixo. E as 3 áreas, se você melhorar, puxam as outras para cima?" },
   { t: "", ideia: "", claude: "" },
   { t: "", ideia: "", claude: "" },
   { t: "Os objetivos", ideia: "Escreva de 3 a 5 objetivos claros para 2027.", claude: "Revise os meus objetivos e me diga se algum está vago demais para eu saber se cheguei lá." },
@@ -294,7 +294,10 @@ function textoDia(i) {
     });
     L.push(`\nA palavra que resume 2026: ${v(S.d2.palavra)}`, `\nDesabafo: ${v(S.d2.desabafo)}`);
   }
-  if (i === 3) areas().slice(0, 8).forEach(a => L.push(`${a.nome}: ${nota(a.id) ?? "sem nota"}`));
+  if (i === 3) {
+    areas().slice(0, 8).forEach(a => L.push(`${a.nome}: ${nota(a.id) ?? "sem nota"}`));
+    L.push(`\nAs 3 áreas que puxam as outras para baixo:\n${v(S.d3.baixo)}`, `\nAs 3 áreas que, melhorando, puxam as outras para cima:\n${v(S.d3.cima)}`);
+  }
   if (i === 6) S.d6.objetivos.forEach((o, k) => {
     if (!o.titulo.trim()) return;
     L.push(`\nObjetivo ${k + 1}: ${o.titulo}`, `Área: ${areaNome(o.area) || "sem área"}`, `Como vou saber que consegui: ${v(o.sinal)}`, `Por que importa: ${v(o.porque)}`, `Prazo: ${o.trimestre ? o.trimestre + "º trimestre" : "sem prazo"}`);
@@ -382,7 +385,13 @@ function barraHTML(a) {
 }
 function dia3() {
   return `<section class="sec"><div class="roda" id="rodabox">${rodaSVG(true)}</div>${legenda()}
-  <div class="barras">${areas().slice(0, 8).map(barraHTML).join("")}</div></section>`;
+  <div class="barras">${areas().slice(0, 8).map(barraHTML).join("")}</div></section>
+  <section class="sec"><h3>As suas listas</h3>
+  <p class="note">Depois de conversar com o Claude, anote aqui as 3 áreas de cada lista.</p>
+  <div class="duas">
+    <label class="lab"><span>As 3 áreas que puxam as outras para baixo</span>${ta("d3.baixo", 5)}</label>
+    <label class="lab"><span>As 3 áreas que, melhorando, puxam as outras para cima</span>${ta("d3.cima", 5)}</label>
+  </div></section>`;
 }
 function diaAberto() { return VER_OBRA() ? "" : `<p class="vazio-dia">Este dia ainda está sendo preparado.</p>`; }
 function dia6() {

@@ -3,12 +3,12 @@ window.MEU2027_CONFIG = {
   // Cole aqui a configuração do aplicativo da Web do Firebase.
   // Enquanto o apiKey estiver vazio, a ferramenta abre em modo prévia, sem login e sem salvar na nuvem.
   firebase: {
-    apiKey: "",
-    authDomain: "",
-    projectId: "",
-    storageBucket: "",
-    messagingSenderId: "",
-    appId: ""
+    apiKey: "AIzaSyBENEYZUlYVcg3m_JSZSTOJihin7LhCXS4",
+    authDomain: "meu-2027.firebaseapp.com",
+    projectId: "meu-2027",
+    storageBucket: "meu-2027.firebasestorage.app",
+    messagingSenderId: "25739629622",
+    appId: "1:25739629622:web:3147ab3923e5b8562b3497"
   },
 
   // Data em que o dia 1 abre (ano-mês-dia). Cada dia seguinte abre à meia-noite do dia seguinte, no horário de Brasília.

@@ -182,7 +182,7 @@ function obraHTML(i) {
   const o = OBRA[obraId(i)] || {};
   return `<div class="obra noprint"><h3>Construção do dia ${i}</h3><p class="quem">Só você vê esta parte. As participantes não veem. <span class="salvo" id="obra-salvo"></span></p>
   <label class="lab"><span>Título do dia</span><input type="text" id="obra-titulo" data-obra="titulo" value="${esc(o.titulo ?? DIAS[i].t)}"></label>
-  <label class="lab"><span>Texto de abertura</span><textarea id="obra-ideia" data-obra="ideia" style="min-height:90px">${esc(o.ideia ?? DIAS[i].ideia)}</textarea></label>
+  <label class="lab"><span>Texto de abertura</span><textarea id="obra-ideia" data-obra="ideia">${esc(o.ideia ?? DIAS[i].ideia)}</textarea></label>
   <label class="lab"><span>Prévia do dia</span><textarea id="obra-previa" data-obra="previa">${esc(o.previa ?? PREVIAS_PADRAO[obraId(i)] ?? "")}</textarea></label>
   <label class="lab"><span>Roteiro do vídeo</span><textarea id="obra-roteiro" data-obra="roteiro">${esc(o.roteiro || "")}</textarea></label>
   <button class="btn small" data-act="copiar-obra">Copiar a construção dos 10 dias</button></div>`;
@@ -555,8 +555,6 @@ document.addEventListener("input", e => {
   const t = e.target;
   if (t.dataset.obra && cur < FINAL()) {
     const id = obraId(cur); OBRA[id] = { ...(OBRA[id] || {}), [t.dataset.obra]: t.value }; mudouObra(id);
-    if (t.dataset.obra === "titulo") { const h = $("#sheet h2.day"); if (h) h.textContent = tituloDia(cur); renderTrail(); }
-    if (t.dataset.obra === "ideia") { const p = $("#ideia-dia"); if (p) { p.textContent = ideiaDia(cur); p.hidden = !ideiaDia(cur); } }
     return;
   }
   if (t.dataset.nota) {
@@ -574,6 +572,9 @@ document.addEventListener("input", e => {
 });
 document.addEventListener("change", e => {
   const t = e.target;
+  // título e abertura só atualizam a página quando a pessoa sai do campo, para nada se mexer enquanto ela dita
+  if (t.dataset && t.dataset.obra === "titulo") { const h = $("#sheet h2.day"); if (h) h.textContent = tituloDia(cur); renderTrail(); return; }
+  if (t.dataset && t.dataset.obra === "ideia") { const p = $("#ideia-dia"); if (p) { p.textContent = ideiaDia(cur); p.hidden = !ideiaDia(cur); } return; }
   if (t.dataset && t.dataset.act === "d0") { S.d0.feito[+t.dataset.k] = t.checked; mudou(); t.closest(".chk").classList.toggle("feita", t.checked); return; }
   if (t.dataset && t.dataset.act === "feita") {
     const tk = projetos()[+t.dataset.pi]?.tarefas[+t.dataset.k];

@@ -21,7 +21,8 @@ const INSTRUCOES = {
 ## As tarefas e os hábitos (diga se as tarefas e os hábitos sustentam os objetivos e aponte as lacunas, como objetivos sem tarefas ou trimestres vazios)
 ## Os 3 pontos de atenção para 2027 (3 parágrafos curtos)
 ## Uma frase para levar para 2027 (1 frase, ligada à palavra e à carta dela)
-Se alguma parte das respostas estiver em branco, diga isso com delicadeza em vez de inventar.`
+Se alguma parte das respostas estiver em branco, diga isso com delicadeza em vez de inventar.`,
+  projetos: `A seguir estão os objetivos de uma mulher para 2027. Transforme cada objetivo em 1 projeto e quebre cada projeto em 3 a 6 tarefas pequenas, concretas e que caibam em poucas horas cada uma, em ordem de execução. Responda só com JSON válido, sem nenhum texto antes ou depois, neste formato: {"projetos":[{"nome":"nome curto do projeto","objetivo":"o objetivo de origem, como ela escreveu","tarefas":["tarefa 1","tarefa 2","tarefa 3"]}]}. Os nomes e as tarefas seguem as regras de escrita acima e começam com verbo no infinitivo.`
 };
 
 const json = (obj, status = 200) => new Response(JSON.stringify(obj), { status, headers: { "content-type": "application/json; charset=utf-8" } });
@@ -46,7 +47,7 @@ export default async req => {
   const tipo = corpo && corpo.tipo;
   const texto = String((corpo && corpo.texto) || "").slice(0, 40000);
   if (!INSTRUCOES[tipo]) return json({ erro: "Tipo de resumo desconhecido." }, 400);
-  if (texto.replace(/\(em branco\)/g, "").replace(/\s+/g, " ").trim().length < 120) return json({ erro: "Escreva um pouco mais antes de gerar o resumo." }, 400);
+  if (texto.replace(/\(em branco\)/g, "").replace(/\s+/g, " ").trim().length < (tipo === "projetos" ? 30 : 120)) return json({ erro: "Escreva um pouco mais antes de gerar o resumo." }, 400);
 
   const limite = Number(process.env.LIMITE_RESUMOS || 12);
   const store = getStore("uso-resumos");
@@ -60,7 +61,7 @@ export default async req => {
       headers: { "x-api-key": chave, "anthropic-version": "2023-06-01", "content-type": "application/json" },
       body: JSON.stringify({
         model: process.env.ANTHROPIC_MODEL || "claude-sonnet-5-5",
-        max_tokens: tipo === "final" ? 2500 : 1200,
+        max_tokens: tipo === "dia1" ? 1200 : 2500,
         system: `${REGRAS}\n\n${INSTRUCOES[tipo]}`,
         messages: [{ role: "user", content: texto }]
       })
@@ -77,6 +78,20 @@ export default async req => {
   if (!saida) return json({ erro: "O resumo veio vazio. Tente de novo." }, 502);
 
   await store.setJSON(uid, { total: uso.total + 1, ultimo: new Date().toISOString() });
+  if (tipo === "projetos") {
+    try {
+      const bruto = saida.slice(saida.indexOf("{"), saida.lastIndexOf("}") + 1);
+      const obj = JSON.parse(bruto);
+      const projetos = (Array.isArray(obj.projetos) ? obj.projetos : []).slice(0, 9).map(p => ({
+        nome: String(p.nome || "").slice(0, 120),
+        objetivo: String(p.objetivo || "").slice(0, 300),
+        tarefas: (Array.isArray(p.tarefas) ? p.tarefas : []).slice(0, 12).map(t => String(t).slice(0, 200))
+      }));
+      return json({ projetos });
+    } catch (e) {
+      return json({ erro: "O Claude devolveu os projetos num formato que eu não consegui ler. Tente de novo." }, 502);
+    }
+  }
   return json({ texto: saida });
 };
 

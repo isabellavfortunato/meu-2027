@@ -93,8 +93,29 @@ const VER_OBRA = () => DEMO || admin;
 let obraDb = null;
 const obraTimers = {}, obraGravando = new Set(), obraSujos = new Set();
 
+const PREVIAS_PADRAO = {
+  d01: "Ela escreve como está cada uma das 8 áreas da vida hoje, do jeito que sair, e pode dividir cada área em partes. No fim, o Claude gera o resumo de quem ela é hoje.",
+  d02: "Ela olha para 2026: o que deu certo, o que não deu, o que aprendeu e do que se orgulha, a palavra que resume o ano e um desabafo livre.",
+  d03: "A roda da vida com 8 áreas. Embaixo da roda, uma barra de 0 a 10 para cada área. A cor de cada área na roda muda conforme o nível que ela marca.",
+  d06: "Ela estabelece de 3 a 5 objetivos claros para 2027, com a área, o prazo, como vai saber que conseguiu e por que isso importa.",
+  d07: "O Claude, dentro da ferramenta, transforma os objetivos em projetos e preenche as tarefas de cada um. Os projetos aparecem em 3 colunas, com 6 visíveis na página. Cada projeto começa com 3 tarefas para marcar e tem o botão Acrescentar uma tarefa. No celular, um embaixo do outro.",
+  d08: "O painel reúne as tarefas dos projetos, soma 10 pontos por tarefa feita, mostra o nível (Semente, Broto, Muda, Árvore e Floresta) e tem uma recompensa para cada nível.",
+  d09: "A página tem o calendário da semana ideal, de segunda a domingo, com manhã, tarde e noite. Do lado direito, os lembretes, cada um com 7 círculos para marcar os dias da semana em que ele vale.",
+  d10: "Ela combina o dia da revisão semanal e os passos das revisões semanal, mensal e trimestral, escolhe o primeiro passo de janeiro e abre O meu 2027, onde o Claude cruza tudo e faz a análise do ano."
+};
+let obraNuvem = false; // true quando a construção fica no Firestore da administradora
 async function iniciarObra() {
   try { const raw = localStorage.getItem(LS_OBRA); if (raw) Object.assign(OBRA, JSON.parse(raw)); } catch (e) { }
+  if (!DEMO && admin && fs && usuario) {
+    obraNuvem = true;
+    try {
+      const snap = await fs.getDoc(fs.doc(db, "participantes", usuario.uid));
+      const c = snap.exists() && snap.data().construcao;
+      if (c) Object.assign(OBRA, JSON.parse(c));
+    } catch (e) { console.error(e); }
+    renderSheet();
+    return;
+  }
   try { obraDb = window.claude && window.claude.use ? await window.claude.use("db") : null; } catch (e) { obraDb = null; }
   if (!obraDb) return;
   obraDb.collection("construcao").onSnapshot(snap => {
@@ -112,10 +133,16 @@ async function iniciarObra() {
 function mudouObra(id) {
   obraSujos.add(id);
   try { localStorage.setItem(LS_OBRA, JSON.stringify(OBRA)); } catch (e) { }
-  const s = $("#obra-salvo"); if (s) s.textContent = obraDb ? "Salvando" : "Salvo neste navegador";
+  const s = $("#obra-salvo"); if (s) s.textContent = (obraDb || obraNuvem) ? "Salvando" : "Salvo neste navegador";
   clearTimeout(obraTimers[id]); obraTimers[id] = setTimeout(() => gravarObra(id), 900);
 }
 async function gravarObra(id) {
+  if (obraNuvem) {
+    obraSujos.delete(id);
+    try { await fs.setDoc(fs.doc(db, "participantes", usuario.uid), { construcao: JSON.stringify(OBRA) }, { merge: true }); const s = $("#obra-salvo"); if (s) s.textContent = "Salvo"; }
+    catch (e) { obraSujos.add(id); const s = $("#obra-salvo"); if (s) s.textContent = "Não consegui salvar, tentando de novo"; obraTimers[id] = setTimeout(() => gravarObra(id), 4000); }
+    return;
+  }
   if (!obraDb) { obraSujos.delete(id); return; }
   if (obraGravando.has(id)) { clearTimeout(obraTimers[id]); obraTimers[id] = setTimeout(() => gravarObra(id), 600); return; }
   obraGravando.add(id); obraSujos.delete(id);
@@ -123,12 +150,16 @@ async function gravarObra(id) {
   catch (e) { obraSujos.add(id); const s = $("#obra-salvo"); if (s) s.textContent = "Não consegui salvar, tentando de novo"; obraTimers[id] = setTimeout(() => gravarObra(id), 4000); }
   obraGravando.delete(id);
 }
+function textoObra() {
+  return DIAS.map((_, i) => { const o = OBRA[obraId(i)] || {}; return `DIA ${i + 1}. ${tituloDia(i).toUpperCase()}\nPrévia do dia: ${(o.previa ?? PREVIAS_PADRAO[obraId(i)] ?? "").trim() || "(em branco)"}\nRoteiro do vídeo: ${(o.roteiro || "").trim() || "(em branco)"}`; }).join("\n\n");
+}
 function obraHTML(i) {
   if (!VER_OBRA()) return "";
   const o = OBRA[obraId(i)] || {};
   return `<div class="obra noprint"><h3>Construção do dia ${i + 1}</h3><p class="quem">Só você vê esta parte. As participantes não veem. <span class="salvo" id="obra-salvo"></span></p>
-  <label class="lab"><span>Prévia do dia</span><textarea id="obra-previa" data-obra="previa" placeholder="Como vai ser este dia: o que ela faz, o que aparece na página e o que o Claude faz.">${esc(o.previa || "")}</textarea></label>
-  <label class="lab"><span>Roteiro do vídeo</span><textarea id="obra-roteiro" data-obra="roteiro" placeholder="O roteiro do vídeo que vai junto com este dia.">${esc(o.roteiro || "")}</textarea></label></div>`;
+  <label class="lab"><span>Prévia do dia</span><textarea id="obra-previa" data-obra="previa" placeholder="Como vai ser este dia: o que ela faz, o que aparece na página e o que o Claude faz.">${esc(o.previa ?? PREVIAS_PADRAO[obraId(i)] ?? "")}</textarea></label>
+  <label class="lab"><span>Roteiro do vídeo</span><textarea id="obra-roteiro" data-obra="roteiro" placeholder="O roteiro do vídeo que vai junto com este dia.">${esc(o.roteiro || "")}</textarea></label>
+  <button class="btn small" data-act="copiar-obra">Copiar a construção dos 10 dias</button></div>`;
 }
 
 /* ---------- datas ---------- */
@@ -497,6 +528,7 @@ document.addEventListener("click", async e => {
     case "rm-lembrete": S.d9.lembretes.splice(i, 1); if (!S.d9.lembretes.length) S.d9.lembretes.push(novoLembrete()); break;
     case "circ": { const l = S.d9.lembretes[i]; l.dias[+b.dataset.k] = !l.dias[+b.dataset.k]; b.classList.toggle("on"); b.setAttribute("aria-pressed", l.dias[+b.dataset.k]); mudou(); return; }
     case "concluir": S.concluidos[+b.dataset.d] = !S.concluidos[+b.dataset.d]; mudou(); renderTrail(); renderSheet(); if (S.concluidos[+b.dataset.d]) toast("Dia concluído"); return;
+    case "copiar-obra": copiar(textoObra()); return;
     case "copiar": copiar(`${DIAS[+b.dataset.d].claude}\n\n${textoDia(+b.dataset.d)}`); return;
     case "resumo": gerarResumo(b.dataset.tipo, b); return;
     case "imprimir": window.print(); return;

@@ -18,7 +18,7 @@ const INSTRUCOES = {
 ## Quem você é hoje (1 parágrafo)
 ## O que 2026 te ensinou (1 parágrafo)
 ## Os objetivos e as dores (diga se os objetivos estão ligados às áreas com as notas mais baixas e às dores escolhidas e aponte o que ficou de fora)
-## As tarefas e os hábitos (diga se as tarefas e os hábitos sustentam os objetivos e aponte as lacunas, como objetivos sem tarefas ou trimestres vazios)
+## As tarefas e os hábitos (diga se as tarefas e os hábitos sustentam os objetivos e aponte as lacunas, como objetivos sem tarefas)
 ## Os 3 pontos de atenção para 2027 (3 parágrafos curtos)
 ## Uma frase para levar para 2027 (1 frase, ligada à palavra e à carta dela)
 Se alguma parte das respostas estiver em branco, diga isso com delicadeza em vez de inventar.`,
@@ -84,7 +84,7 @@ export default async req => {
       const obj = JSON.parse(bruto);
       const projetos = (Array.isArray(obj.projetos) ? obj.projetos : []).slice(0, 8).map(p => ({
         nome: String(p.nome || "").slice(0, 120),
-        objetivo: String(p.objetivo || "").slice(0, 300),
+        objetivo: String(p.objetivo || "").slice(0, 3000),
         tarefas: (Array.isArray(p.tarefas) ? p.tarefas : []).slice(0, 12).map(t => String(t).slice(0, 200))
       }));
       return json({ projetos });

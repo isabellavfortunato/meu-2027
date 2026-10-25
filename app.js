@@ -236,7 +236,7 @@ function textoDia(i) {
   }
   if (i === 6) S.d6.objetivos.forEach((o, k) => {
     if (!o.titulo.trim()) return;
-    L.push(`\nObjetivo ${k + 1}: ${o.titulo}`, `Área: ${areaNome(o.area) || "sem área"}`, `Como vou saber que consegui: ${v(o.sinal)}`, `Por que importa: ${v(o.porque)}`, `Prazo: ${o.trimestre ? o.trimestre + "º trimestre" : "sem prazo"}`);
+    L.push(`\nObjetivo ${k + 1}: ${o.titulo}`, `Área: ${areaNome(o.area) || "sem área"}`);
   });
   if (i === 7) [...projetos(), ...extras()].forEach(p => {
     if (!p.nome.trim() && !p.tarefas.some(t => t.texto.trim())) return;
@@ -336,11 +336,9 @@ function dia6() {
   const os = S.d6.objetivos;
   return `<section class="sec"><h3>De 3 a 5 objetivos</h3>
   ${os.map((o, i) => `<div class="card">
-    <div class="cardhead">${inp(`d6.objetivos.${i}.titulo`, `Objetivo ${i + 1}`)}${os.length > 1 ? `<button class="x" data-act="rm-obj" data-i="${i}" aria-label="Tirar o objetivo">×</button>` : ""}</div>
-    <div class="grid2"><label class="lab"><span>Área</span>${sel(`d6.objetivos.${i}.area`, areaOpts(), "Escolha a área")}</label>
-    <label class="lab"><span>Prazo</span>${sel(`d6.objetivos.${i}.trimestre`, [["1", "1º trimestre"], ["2", "2º trimestre"], ["3", "3º trimestre"], ["4", "4º trimestre"]], "Escolha o prazo")}</label></div>
-    <label class="lab"><span>Como eu vou saber que consegui</span>${ta(`d6.objetivos.${i}.sinal`, 2)}</label>
-    <label class="lab"><span>Por que isso importa para mim</span>${ta(`d6.objetivos.${i}.porque`, 2)}</label>
+    <div class="cardhead"><span class="obj-n">Objetivo ${i + 1}</span>${os.length > 1 ? `<button class="x" data-act="rm-obj" data-i="${i}" aria-label="Tirar o objetivo">×</button>` : ""}</div>
+    <label class="lab"><span>Área</span>${sel(`d6.objetivos.${i}.area`, areaOpts(), "Escolha a área")}</label>
+    <label class="lab"><span>Descreva seu objetivo</span>${ta(`d6.objetivos.${i}.titulo`, 4, "Descreva detalhadamente o lugar em que você deseja chegar.").replace("<textarea ", '<textarea class="auto" ')}</label>
   </div>`).join("")}
   ${os.length < 5 ? `<button class="btn" data-act="add-obj">Acrescentar um objetivo</button>` : ""}</section>`;
 }
@@ -398,8 +396,7 @@ function painelRevisao() {
     const meus = ps.filter(x => norm(x.p.objetivo) && norm(x.p.objetivo) === norm(o.titulo));
     meus.forEach(x => usados.add(x.i));
     return `<div class="pobjetivo"><div class="pobj-topo"><h4>${esc(o.titulo)}</h4>
-      ${o.area ? `<span class="tag">${esc(areaNome(o.area))}</span>` : ""}${o.trimestre ? `<span class="tag">${esc(o.trimestre)}º trimestre</span>` : ""}</div>
-      ${o.sinal.trim() ? `<p class="note">Como vou saber que consegui: ${esc(o.sinal)}</p>` : ""}
+      ${o.area ? `<span class="tag">${esc(areaNome(o.area))}</span>` : ""}</div>
       <div class="pcards">${meus.map(x => projetoCard(x.p, x.i, false)).join("") || `<p class="note">Nenhum projeto ligado a este objetivo no dia 7.</p>`}</div></div>`;
   }).join("");
   const soltos = ps.filter(x => !usados.has(x.i));
@@ -627,10 +624,11 @@ async function gerarProjetos(btn) {
     const j = await chamarClaude("projetos", textoDia(6));
     const lst = Array.isArray(j.projetos) ? j.projetos : [];
     if (!lst.length) throw new Error("O Claude não devolveu projetos. Tente de novo.");
-    S.d7.projetos = lst.slice(0, TOTAL_PROJETOS).map(p => {
+    const objsEscritos = S.d6.objetivos.filter(o => o.titulo.trim());
+    S.d7.projetos = lst.slice(0, TOTAL_PROJETOS).map((p, k) => {
       const ts = (Array.isArray(p.tarefas) ? p.tarefas : []).map(t => ({ id: novoId(), texto: String(t), feita: false }));
       while (ts.length < 3) ts.push(novaTarefa());
-      return { id: novoId(), nome: String(p.nome || ""), objetivo: String(p.objetivo || ""), tarefas: ts };
+      return { id: novoId(), nome: String(p.nome || ""), objetivo: lst.length === objsEscritos.length ? objsEscritos[k].titulo : String(p.objetivo || ""), tarefas: ts };
     });
     garantirProjetos(); pendente = true; await salvar(); renderSheet();
   } catch (err) { toast(err.message); renderSheet(); }

@@ -12,7 +12,7 @@ window.MEU2027_CONFIG = {
   },
 
   // Data em que o dia 1 abre (ano-mês-dia). Cada dia seguinte abre à meia-noite do dia seguinte, no horário de Brasília.
-  inicio: "2026-12-10",
+  inicio: "2026-12-05",
 
   // E-mails que veem todos os dias abertos antes da data, para testar.
   admins: ["isavfortunato@gmail.com"],

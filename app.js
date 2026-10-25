@@ -39,8 +39,8 @@ const DIAS = [
   { t: "Primeiras coisas que você precisa fazer para usar a inteligência artificial", ideia: "", claude: "Organize numa ordem lógica tudo o que eu contei sobre mim e me diga o que ficou faltando para você me conhecer melhor." },
   { t: "A retrospectiva de 2026", ideia: "Olhar para 2026 com honestidade: o que deu certo, o que não deu, o que você aprendeu e do que você se orgulha.", claude: "A partir da minha retrospectiva de 2026, me ajude a enxergar os padrões que se repetem." },
   { t: "A roda da vida", ideia: "Marque de 0 a 10 como está cada uma das 8 áreas da sua vida hoje. A roda muda de cor conforme o nível de cada área.", claude: "Olhando as notas da minha roda da vida, indique as 3 áreas que estão puxando as outras para baixo. E as 3 áreas, se você melhorar, puxam as outras para cima?" },
-  { t: "", ideia: "", claude: "" },
-  { t: "", ideia: "", claude: "" },
+  { t: "Seu maior desafio e a ferramenta que vai te ajudar", ideia: "", claude: "" },
+  { t: "Montando a estrutura e construindo a sua ferramenta", ideia: "", claude: "Quero construir uma ferramenta que me ajude a resolver o desafio que eu descrevo abaixo. Leia tudo o que eu escrevi, monte a estrutura da ferramenta e construa a primeira versão. Se alguma coisa não estiver clara, me pergunte antes de construir." },
   { t: "Os objetivos", ideia: "Escreva de 3 a 5 objetivos claros para 2027.", claude: "Revise os meus objetivos e me diga se algum está vago demais para eu saber se cheguei lá." },
   { t: "Dos objetivos aos projetos", ideia: "Os seus objetivos viram projetos, e cada projeto é quebrado em ações pequenas para você ir marcando ao longo do ano.", claude: "Pegue um dos meus projetos e me ajude a montar o primeiro passo de cada ação." },
   { t: "A semana ideal", ideia: "Desenhe a sua semana ideal de 2027, de segunda a domingo, com manhã, tarde e noite.", claude: "Monte comigo a minha semana ideal a partir dos meus projetos e da minha rotina." },
@@ -63,6 +63,8 @@ function estadoInicial() {
     d1: { areas: AREAS_PADRAO.map(n => ({ id: novoId(), nome: n, texto: "", subs: [] })), respostas: {} },
     d2: { certo: [""], errado: [""], aprendi: [""], orgulho: [""], palavra: "", desabafo: "" },
     d3: { notas: {} },
+    d4: { questao: "", detalhe: "", porque: "", solucao: "", essencial: "", livre: "" },
+    d5: { exemplos: "", funcionalidades: "", tudo: "", ajustes: "" },
     d6: { objetivos: [novoObjetivo(), novoObjetivo(), novoObjetivo()] },
     d7: { projetos: [], extras: [] },
     d8: { recompensas: ["", "", "", ""] },
@@ -217,7 +219,7 @@ function resumoHTML(texto) {
 }
 
 /* ---------- textos para o Claude ---------- */
-function textoDia(i) {
+function textoDia(i, comDia4 = false) {
   const L = [`DIA ${i}. ${tituloDia(i).toUpperCase()}`];
   const v = s => (s || "").trim() || "(em branco)";
   if (i === 1) PERGUNTAS_D1.forEach(g => {
@@ -233,6 +235,15 @@ function textoDia(i) {
   if (i === 3) {
     areas().slice(0, 8).forEach(a => L.push(`${a.nome}: ${nota(a.id) ?? "sem nota"}`));
     L.push(`\nAs 3 áreas que puxam as outras para baixo:\n${v(S.d3.baixo)}`, `\nAs 3 áreas que, melhorando, puxam as outras para cima:\n${v(S.d3.cima)}`);
+  }
+  if (i === 4 || (i === 5 && comDia4)) {
+    if (i === 5) L.push(`\nO MEU MAIOR DESAFIO (DIA 4)`);
+    PERGUNTAS_D4.forEach(([k, q]) => L.push(`\n${q}\n${v(S.d4[k])}`));
+    L.push(`\nEspaço livre:\n${v(S.d4.livre)}`);
+  }
+  if (i === 5) {
+    if (comDia4) L.push(`\nA ESTRUTURA DA FERRAMENTA (DIA 5)`);
+    PERGUNTAS_D5.forEach(([k, q]) => L.push(`\n${q}\n${v(S.d5[k])}`));
   }
   if (i === 6) S.d6.objetivos.forEach((o, k) => {
     if (!o.titulo.trim()) return;
@@ -331,6 +342,38 @@ function dia3() {
     <label class="lab"><span>As 3 áreas que, melhorando, puxam as outras para cima</span>${ta("d3.cima", 5)}</label>
   </div></section>`;
 }
+const PERGUNTAS_D4 = [
+  ["questao", "Qual questão mais te incomodou este ano e que você gostaria de fazer mais facilmente com a inteligência artificial?", "Você pode pensar em mais de uma."],
+  ["detalhe", "Descreva esse problema de forma detalhada e dê o contexto.", ""],
+  ["porque", "Por que ele é um problema?", ""],
+  ["solucao", "Como você gostaria que fosse a solução?", ""],
+  ["essencial", "O que não pode faltar nessa solução?", ""]
+];
+const PERGUNTAS_D5 = [
+  ["exemplos", "Quais sites ou plataformas que você usa podem servir de exemplo?", "Tire prints dessas telas e coloque na conversa com o Claude, para ele ver o layout e as funcionalidades."],
+  ["funcionalidades", "Quais funcionalidades dessas plataformas te interessam?", ""],
+  ["tudo", "Tudo o que você quer na sua ferramenta", "Conte tudo, sem se preocupar com a ordem. Finja que alguém vai construir essa ferramenta para você."]
+];
+const perguntaHTML = (base, [k, q, dica], rows = 4) => `<div class="pergunta"><label for="${base}-${k}">${esc(q)}</label>${dica ? `<p class="note">${esc(dica)}</p>` : ""}<textarea class="auto" id="${base}-${k}" data-p="${base}.${k}" rows="${rows}">${esc(S[base][k] || "")}</textarea></div>`;
+function dia4() {
+  return `<section class="sec"><h3>O seu maior desafio</h3>
+  <p class="note">Use as perguntas como inspiração. Você não precisa responder todas.</p>
+  ${PERGUNTAS_D4.map(q => perguntaHTML("d4", q)).join("")}</section>
+  <section class="sec"><h3>Espaço livre</h3>
+  <p class="note">Este também é um dia de desabafo. Escreva aqui o que mais quiser.</p>
+  <textarea class="auto" id="d4-livre" data-p="d4.livre" rows="6">${esc(S.d4.livre || "")}</textarea></section>`;
+}
+function dia5() {
+  return `<div class="dica-mic">
+    <h3>Conte tudo falando</h3>
+    <p>Abra o Claude, toque no microfone e conte absolutamente tudo o que você quer na sua ferramenta. Se quiser voltar a uma funcionalidade que já falou, é só se referir a ela, e o Claude vai entender. Se ele construir alguma coisa que você não quer, é só dizer.</p>
+  </div>
+  <section class="sec"><h3>A estrutura da sua ferramenta</h3>
+  ${PERGUNTAS_D5.map(q => perguntaHTML("d5", q, q[0] === "tudo" ? 8 : 4)).join("")}</section>
+  <section class="sec"><h3>Depois da primeira versão</h3>
+  <p class="note">A ferramenta é viva e vai sendo atualizada à medida que você sentir necessidade de outras funcionalidades. Anote aqui o que ainda quer mudar.</p>
+  <textarea class="auto" id="d5-ajustes" data-p="d5.ajustes" rows="4">${esc(S.d5.ajustes || "")}</textarea></section>`;
+}
 function diaAberto() { return `<p class="vazio-dia">Este dia ainda está sendo preparado.</p>`; }
 function dia6() {
   const os = S.d6.objetivos;
@@ -419,7 +462,7 @@ function dia10() {
   return `${painelRevisao()}<section class="sec"><h3>O seu plano completo</h3><p class="note">Agora a ferramenta cruza tudo o que você escreveu nos 10 dias.</p>
   <button class="btn primary" data-act="ir" data-d="${FINAL()}">Ver o meu 2027</button></section>`;
 }
-const RENDER = [dia0, dia1, dia2, dia3, diaAberto, diaAberto, dia6, dia7, dia8, dia9, dia10];
+const RENDER = [dia0, dia1, dia2, dia3, dia4, dia5, dia6, dia7, dia8, dia9, dia10];
 
 function finalView() {
   const ps = projetos().filter(p => p.nome.trim());
@@ -554,7 +597,7 @@ document.addEventListener("click", async e => {
     case "circ": { const l = S.d9.lembretes[i]; l.dias[+b.dataset.k] = !l.dias[+b.dataset.k]; b.classList.toggle("on"); b.setAttribute("aria-pressed", l.dias[+b.dataset.k]); mudou(); return; }
     case "concluir": S.concluidos[+b.dataset.d] = !S.concluidos[+b.dataset.d]; mudou(); renderTrail(); renderSheet(); if (S.concluidos[+b.dataset.d]) toast("Dia concluído"); return;
     case "copiar-perguntas": copiar(textoPerguntasD1()); return;
-    case "copiar": copiar(`${DIAS[+b.dataset.d].claude}\n\n${textoDia(+b.dataset.d)}`); return;
+    case "copiar": copiar(`${DIAS[+b.dataset.d].claude}\n\n${textoDia(+b.dataset.d, true)}`); return;
     case "resumo": gerarResumo(b.dataset.tipo, b); return;
     case "imprimir": window.print(); return;
     case "textos-antigos": mostrarTextosAntigos(); return;
